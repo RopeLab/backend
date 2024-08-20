@@ -16,3 +16,9 @@ diesel migration run
 ```shell
 cargo run
 ```
+
+## Debugging Database
+```shell
+nix-shell shell.nix
+dbeaver
+```
