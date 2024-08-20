@@ -1,8 +1,8 @@
 //! Run with
 //!
 //! ```sh
-//! diesel migration run
-//! cargo run
+//! 
+//! 
 //! ```
 //!
 //! Checkout the [diesel webpage](https://diesel.rs) for
