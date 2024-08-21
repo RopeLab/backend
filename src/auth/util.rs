@@ -53,8 +53,9 @@ pub async fn path_id_is_admin_or_me(
     Ok((id, conn))
 }
 
-pub fn parse_path_id(Path(id): Path<String>) -> Result<UserId<Backend>> {
-    let id = id.parse::<UserId<Backend>>();
+
+pub fn parse_path_id(Path(id): Path<String>) -> Result<i32> {
+    let id = id.parse::<i32>();
     if id.is_err() {
         return Err(APIError::InvalidPath);
     }

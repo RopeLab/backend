@@ -6,6 +6,7 @@ pub mod backend;
 mod user_data;
 pub mod error;
 pub mod permissions;
+pub mod events;
 
 use axum::{
     Router,
@@ -18,6 +19,7 @@ use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use crate::auth::routes::{add_admin_auth_routes, add_auth_routes};
 use crate::backend::Backend;
+use crate::events::{add_admin_event_routes, add_event_routes};
 use crate::open_api::add_swagger_route;
 use crate::permissions::{has_permission, UserPermission};
 use crate::permissions::routes::{add_admin_permission_routes, add_permission_routes};
@@ -44,8 +46,10 @@ async fn main() {
     
     
     let mut router = Router::<Backend>::new();
+    
     router = add_admin_auth_routes(router);
     router = add_admin_permission_routes(router);
+    router = add_admin_event_routes(router);
     router = router.route_layer(permission_required!(Backend, UserPermission::Admin));
 
     router = add_swagger_route(router);
@@ -53,6 +57,7 @@ async fn main() {
     router = add_user_data_routes(router);
     router = add_public_user_data_routes(router);
     router = add_permission_routes(router);
+    router = add_event_routes(router);
 
     router = router.route("/", get(|| async { "This is the Rope Lab Website Backend" }));
     router = router.layer(auth_layer);

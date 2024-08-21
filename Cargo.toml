@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 axum = { version = "0.7.5", features = ["macros"] }
 bb8 = "0.8"
-diesel = "2"
+diesel = { version = "2", features = ["chrono"] }
 diesel-async = { version = "0.3", features = ["postgres", "bb8"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1"
@@ -23,3 +23,4 @@ axum-login = "0.15.3"
 argon2 = "0.5.3"
 axum-enum-response = "0.1.2"
 diesel-derive-enum = { version = "2.1.0", features = ["postgres"] }
+chrono = { version = "0.4.38", features = ["serde"] }

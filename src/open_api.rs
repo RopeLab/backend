@@ -8,6 +8,7 @@ use crate::user_data::*;
 use crate::user_data::public::*;
 use crate::permissions::*;
 use crate::permissions::routes::*;
+use crate::events::*;
 
 #[derive(OpenApi)]
 #[openapi(
@@ -21,7 +22,10 @@ use crate::permissions::routes::*;
         post_user_data,
         post_permission,
         get_permission,
-        get_public_user_data
+        get_public_user_data,
+        post_event,
+        get_event,
+        get_event_all,
     ), 
     components(schemas(
         User,
@@ -31,6 +35,8 @@ use crate::permissions::routes::*;
         Permission,
         NewPermission,
         PublicUserData,
+        Event,
+        NewEvent,
     )))]
 struct ApiDoc;
 
