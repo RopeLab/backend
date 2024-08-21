@@ -7,7 +7,7 @@ CREATE TABLE "users"(
 
 CREATE TABLE "user_data"(
     "id" SERIAL PRIMARY KEY NOT NULL,
-    "user_id" SERIAL REFERENCES users(id),
+    "user_id" INT NOT NULL REFERENCES users(id) UNIQUE,
 
     "name" TEXT NOT NULL,
     "fetlife_name" TEXT NOT NULL,

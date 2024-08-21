@@ -4,6 +4,7 @@ use utoipa_swagger_ui::SwaggerUi;
 use crate::backend::Backend;
 use crate::auth::*;
 use crate::user_data::*;
+use crate::permissions::*;
 
 #[derive(OpenApi)]
 #[openapi(
@@ -11,13 +12,20 @@ use crate::user_data::*;
         openapi,
         sign_up,
         login,
+        logout,
         list_users,
-        user_data,
+        get_user_data,
+        post_user_data,
+        post_permission,
+        get_permission
     ), 
     components(schemas(
         User,
         Credentials,
-        UserData
+        UserData,
+        NewUserData,
+        Permission,
+        NewPermission,
     )))]
 struct ApiDoc;
 

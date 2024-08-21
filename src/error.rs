@@ -22,6 +22,14 @@ pub enum APIError {
     #[status_code(FORBIDDEN)]
     #[message("InvalidCredentials")]
     InvalidCredentials,
+
+    #[status_code(NOT_ACCEPTABLE)]
+    #[message("PermissionAlreadyAdded")]
+    PermissionAlreadyAdded,
+
+    #[status_code(NOT_ACCEPTABLE)]
+    #[message("InvalidPath")]
+    InvalidPath,
 }
 
 

@@ -5,7 +5,7 @@ use argon2::password_hash::SaltString;
 use async_trait::async_trait;
 use axum::{debug_handler, Json, Router};
 use axum::routing::{get, post};
-use axum_login::{AuthUser, AuthnBackend, UserId};
+use axum_login::{AuthUser, AuthnBackend, UserId, AuthzBackend};
 use diesel::{ExpressionMethods, Insertable, Queryable, QueryDsl, Selectable, SelectableHelper};
 use diesel_async::RunQueryDsl;
 use utoipa::ToSchema;
@@ -31,6 +31,12 @@ pub struct NewUser {
     pub pw_hash: String,
 }
 
+#[derive(serde::Deserialize, Clone, ToSchema)]
+pub struct Credentials {
+    email: String,
+    password: String,
+}
+
 impl AuthUser for User {
     type Id = i32;
 
@@ -43,13 +49,6 @@ impl AuthUser for User {
     }
 }
 
-
-
-#[derive(serde::Deserialize, Clone, ToSchema)]
-pub struct Credentials {
-    email: String,
-    password: String,
-}
 
 #[utoipa::path(
     post,
@@ -137,10 +136,11 @@ impl AuthnBackend for Backend {
     post,
     path = "/login"
 )]
+#[debug_handler]
 async fn login(
     mut auth_session: AuthSession,
     Json(credentials): Json<Credentials>,
-) -> Result<()> {
+) -> Result<Json<UserId<Backend>>> {
     let user = match auth_session.authenticate(credentials.clone()).await {
         Ok(Some(user)) => user,
         Ok(None) => return Err(APIError::InvalidCredentials),
@@ -151,7 +151,30 @@ async fn login(
         return Err(APIError::internal(err));
     }
 
+    Ok(Json(auth_session.user.unwrap().id))
+}
+
+#[utoipa::path(
+    post,
+    path = "/logout"
+)]
+#[debug_handler]
+async fn logout(mut auth_session: AuthSession) -> Result<()> {
+    if auth_session.user.is_none() {
+        return Err(APIError::UNAUTHORIZED);
+    }
+
+    auth_session.logout()
+        .await
+        .map_err(APIError::internal)?;
+
     Ok(())
+}
+
+pub fn add_auth_routes(router: Router<Backend>) -> Router<Backend> {
+    router.route("/signup", post(sign_up))
+        .route("/login", post(login))
+        .route("/logout", post(login))
 }
 
 #[utoipa::path(
@@ -167,11 +190,7 @@ async fn list_users(DBConnection(mut conn): DBConnection) -> Result<Json<Vec<Use
     Ok(Json(res))
 }
 
-pub fn add_login_auth_routes(router: Router<Backend>) -> Router<Backend> {
+pub fn add_admin_auth_routes(router: Router<Backend>) -> Router<Backend> {
     router.route("/user/list", get(list_users))
 }
 
-pub fn add_auth_routes(router: Router<Backend>) -> Router<Backend> {
-    router.route("/signup", post(sign_up))
-        .route("/login", post(login))
-}

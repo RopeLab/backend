@@ -4,21 +4,23 @@ pub mod open_api;
 pub mod auth;
 pub mod backend;
 mod user_data;
-mod error;
-
+pub mod error;
+pub mod permissions;
+pub mod util;
 
 use axum::{
-    http::StatusCode,
     routing::get,
     Router,
 };
 use std::net::SocketAddr;
-use axum_login::{AuthManagerLayerBuilder, login_required};
+use axum_login::{AuthManagerLayerBuilder, login_required, permission_required};
 use axum_login::tower_sessions::{MemoryStore, SessionManagerLayer};
+use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use crate::auth::{add_auth_routes, add_login_auth_routes};
-use crate::backend::{Backend, DBPool};
+use crate::auth::{add_auth_routes, add_admin_auth_routes};
+use crate::backend::Backend;
 use crate::open_api::add_swagger_route;
+use crate::permissions::{add_admin_permission_routes, add_permission_routes, has_permission, UserPermission};
 use crate::user_data::add_user_data_routes;
 
 
@@ -35,18 +37,21 @@ async fn main() {
     let session_store = MemoryStore::default();
     let session_layer = SessionManagerLayer::new(session_store);
 
-   
-    
+
     let backend = Backend::new().await.unwrap();
     let auth_layer = AuthManagerLayerBuilder::new(backend.clone(), session_layer).build();
     
     // set up connection pool
     let mut router = Router::<Backend>::new();
-    router = add_login_auth_routes(router);
-    router = router.route_layer(login_required!(Backend, login_url = "/login"));
-    router = add_user_data_routes(router);
-    router = add_auth_routes(router);
+    router = add_admin_auth_routes(router);
+    router = add_admin_permission_routes(router);
+    router = router.route_layer(permission_required!(Backend, UserPermission::Admin));
+
     router = add_swagger_route(router);
+    router = add_auth_routes(router);
+    router = add_user_data_routes(router);
+    router = add_permission_routes(router);
+
     router = router.route("/", get(|| async { "This is the Rope Lab Website Backend" }));
     router = router.layer(auth_layer);
 
