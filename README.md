@@ -17,8 +17,14 @@ diesel migration run
 cargo run
 ```
 
-## Debugging Database
+## Tools
+### Debug database 
 ```shell
-nix-shell shell.nix
 dbeaver
+```
+
+### Recreate all migrations
+```shell
+diesel migration redo
+diesel_ext --model > src/models.rs
 ```
