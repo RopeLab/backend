@@ -25,7 +25,6 @@ diesel::table! {
         id -> Int4,
         email -> Text,
         pw_hash -> Text,
-        salt -> Text,
     }
 }
 

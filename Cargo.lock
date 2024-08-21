@@ -133,6 +133,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "axum-enum-response"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3977c4a19025133e69736932e9b90321396c04198657de4db3a586984f222bb1"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.75",
+]
+
+[[package]]
 name = "axum-login"
 version = "0.15.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -172,6 +183,7 @@ dependencies = [
  "argon2",
  "async-trait",
  "axum",
+ "axum-enum-response",
  "axum-login",
  "bb8",
  "diesel",

@@ -1,8 +1,9 @@
 use axum::{Json, Router};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
-use crate::Pool;
+use crate::backend::Backend;
 use crate::auth::*;
+use crate::user_data::*;
 
 #[derive(OpenApi)]
 #[openapi(
@@ -11,10 +12,12 @@ use crate::auth::*;
         sign_up,
         login,
         list_users,
+        user_data,
     ), 
     components(schemas(
         User,
-        Credentials
+        Credentials,
+        UserData
     )))]
 struct ApiDoc;
 
@@ -30,6 +33,6 @@ pub async fn openapi() -> Json<utoipa::openapi::OpenApi> {
     Json(ApiDoc::openapi())
 }
 
-pub fn add_swagger_route(router: Router<Pool>) -> Router<Pool> {
+pub fn add_swagger_route(router: Router<Backend>) -> Router<Backend> {
     router.merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
 }

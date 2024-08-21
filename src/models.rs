@@ -28,6 +28,5 @@ pub struct User {
     pub id: i32,
     pub email: String,
     pub pw_hash: String,
-    pub salt: String,
 }
 

@@ -1,26 +1,26 @@
-use std::convert::Infallible;
+
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use argon2::password_hash::rand_core::OsRng;
 use argon2::password_hash::SaltString;
 use async_trait::async_trait;
-use axum::{Json, Router};
-use axum::response::{IntoResponse};
+use axum::{debug_handler, Json, Router};
 use axum::routing::{get, post};
 use axum_login::{AuthUser, AuthnBackend, UserId};
 use diesel::{ExpressionMethods, Insertable, Queryable, QueryDsl, Selectable, SelectableHelper};
 use diesel_async::RunQueryDsl;
-use http::StatusCode;
 use utoipa::ToSchema;
-use crate::{internal_error, internal_error_from_string, Pool};
-use crate::db_backend::DatabaseConnection;
+use crate::backend::{Backend, DBConnection};
+use crate::error::{APIError};
 use crate::schema::users;
+use crate::error::Result;
+
+pub type AuthSession = axum_login::AuthSession<Backend>;
 
 #[derive(serde::Serialize, Selectable, Queryable, ToSchema, Clone, Debug)]
 pub struct User {
     pub id: i32,
     pub email: String,
     pub pw_hash: String,
-    pub salt: String,
 }
 
 
@@ -29,7 +29,6 @@ pub struct User {
 pub struct NewUser {
     pub email: String,
     pub pw_hash: String,
-    pub salt: String,
 }
 
 impl AuthUser for User {
@@ -44,10 +43,7 @@ impl AuthUser for User {
     }
 }
 
-#[derive(Clone)]
-pub struct AuthBackend {
-    pub pool: Pool
-}
+
 
 #[derive(serde::Deserialize, Clone, ToSchema)]
 pub struct Credentials {
@@ -60,12 +56,12 @@ pub struct Credentials {
     path = "/signup"
 )]
 async fn sign_up(
-    mut conn: DatabaseConnection,
+    mut conn: DBConnection,
     Json(credentials): Json<Credentials>
-) -> Result<(), (StatusCode, String)> {
+) -> Result<()> {
 
     if get_user_with_email(&mut conn, &credentials.email).await.is_some() {
-        return Err(internal_error_from_string("email allready used"));
+        return Err(APIError::EmailUsed);
     }
     
     let salt = SaltString::generate(&mut OsRng);
@@ -75,19 +71,18 @@ async fn sign_up(
     let new_user = NewUser{
         email: credentials.email,
         pw_hash,
-        salt: "".to_owned(),
     };
 
     diesel::insert_into(users::table)
         .values(new_user)
         .execute(&mut conn.0)
         .await
-        .map_err(internal_error)?;
+        .map_err(APIError::internal)?;
     
     Ok(())
 }
 
-async fn get_user_with_email(conn: &mut DatabaseConnection, email: &str) -> Option<User> {
+async fn get_user_with_email(conn: &mut DBConnection, email: &str) -> Option<User> {
     users::table
         .filter(users::columns::email.eq(email))
         .select(User::as_select())
@@ -97,13 +92,13 @@ async fn get_user_with_email(conn: &mut DatabaseConnection, email: &str) -> Opti
 }
 
 #[async_trait]
-impl AuthnBackend for AuthBackend {
+impl AuthnBackend for Backend {
     type User = User;
     type Credentials = Credentials;
-    type Error = Infallible;
+    type Error = APIError;
 
-    async fn authenticate(&self, credentials: Credentials) -> Result<Option<Self::User>, Self::Error> {
-        let mut conn = DatabaseConnection::from_pool(&self.pool).await.unwrap();
+    async fn authenticate(&self, credentials: Credentials) -> Result<Option<User>> {
+        let mut conn = self.get_connection().await?;
         let user = get_user_with_email(&mut conn, &credentials.email).await;
         if user.is_none() { return Ok(None) }
         let user = user.unwrap();
@@ -119,11 +114,11 @@ impl AuthnBackend for AuthBackend {
     async fn get_user(
         &self,
         user_id: &UserId<Self>,
-    ) -> Result<Option<Self::User>, Self::Error> {
-        let mut conn = self.pool
+    ) -> Result<Option<Self::User>> {
+        let mut conn = self.db_pool
             .get()
             .await
-            .map_err(internal_error)
+            .map_err(APIError::internal)
             .unwrap();
 
         let res = users::table
@@ -136,7 +131,7 @@ impl AuthnBackend for AuthBackend {
     }
 }
 
-type AuthSession = axum_login::AuthSession<AuthBackend>;
+
 
 #[utoipa::path(
     post,
@@ -145,38 +140,38 @@ type AuthSession = axum_login::AuthSession<AuthBackend>;
 async fn login(
     mut auth_session: AuthSession,
     Json(credentials): Json<Credentials>,
-) -> impl IntoResponse {
+) -> Result<()> {
     let user = match auth_session.authenticate(credentials.clone()).await {
         Ok(Some(user)) => user,
-        Ok(None) => return StatusCode::UNAUTHORIZED.into_response(),
-        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(None) => return Err(APIError::InvalidCredentials),
+        Err(err) => return Err(APIError::internal(err)),
     };
 
-    if auth_session.login(&user).await.is_err() {
-        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    if let Err(err) = auth_session.login(&user).await {
+        return Err(APIError::internal(err));
     }
 
-    StatusCode::OK.into_response()
+    Ok(())
 }
 
 #[utoipa::path(
     get,
     path = "/user/list"
 )]
-async fn list_users(DatabaseConnection(mut conn): DatabaseConnection) -> Result<Json<Vec<User>>, (StatusCode, String)> {
+async fn list_users(DBConnection(mut conn): DBConnection) -> Result<Json<Vec<User>>> {
     let res = users::table
         .select(User::as_select())
         .load(&mut conn)
         .await
-        .map_err(internal_error)?;
+        .map_err(APIError::internal)?;
     Ok(Json(res))
 }
 
-pub fn add_login_auth_routes(router: Router<Pool>) -> Router<Pool> {
+pub fn add_login_auth_routes(router: Router<Backend>) -> Router<Backend> {
     router.route("/user/list", get(list_users))
 }
 
-pub fn add_auth_routes(router: Router<Pool>) -> Router<Pool> {
+pub fn add_auth_routes(router: Router<Backend>) -> Router<Backend> {
     router.route("/signup", post(sign_up))
         .route("/login", post(login))
 }

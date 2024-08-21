@@ -28,3 +28,6 @@ dbeaver
 diesel migration redo
 diesel_ext --model > src/models.rs
 ```
+
+### Fixing Handler Compile Problems 
+`#[debug_handler]`

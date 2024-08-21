@@ -2,7 +2,7 @@
 CREATE TABLE "users"(
     "id" SERIAL PRIMARY KEY NOT NULL,
     "email" TEXT NOT NULL,
-    "pw_hash" TEXT NOT NULL,
+    "pw_hash" TEXT NOT NULL
 );
 
 CREATE TABLE "user_data"(
