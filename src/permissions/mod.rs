@@ -1,3 +1,5 @@
+pub mod routes;
+
 use axum::{async_trait, debug_handler, Json, Router};
 use std::collections::{BTreeMap, HashSet};
 use std::ops::BitAnd;
@@ -7,17 +9,12 @@ use axum::routing::{get, post};
 use axum_login::{AuthzBackend, UserId};
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
-use tracing::{debug, info};
-use tracing::log::log;
 use utoipa::{ToSchema};
-use utoipa::openapi::{RefOr, Response};
-use crate::auth::AuthSession;
 use crate::backend::{Backend, DBConnection};
 use crate::error::APIError;
 use crate::schema::{permission};
 use crate::schema::permission::{user_id, user_permission};
 use crate::error::Result;
-use crate::util::path_id_is_admin_or_me;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 #[derive(diesel_derive_enum::DbEnum)]
@@ -41,43 +38,6 @@ pub struct Permission {
 pub struct NewPermission {
     pub user_id: i32,
     pub user_permission: UserPermission,
-}
-
-#[utoipa::path(
-    post,
-    path = "/permission"
-)]
-pub async fn post_permission(
-    mut conn: DBConnection,
-    Json(new_permission): Json<NewPermission>
-) -> Result<()> {
-
-    if has_permission(&mut conn, new_permission.user_id, new_permission.user_permission).await {
-        return Err(APIError::PermissionAlreadyAdded)
-    }
-
-    diesel::insert_into(permission::table)
-        .values(&new_permission)
-        .execute(&mut conn.0)
-        .await
-        .map_err(APIError::internal)?;
-
-    Ok(())
-}
-
-#[utoipa::path(
-    get,
-    path = "/permission/{id}"
-)]
-#[debug_handler]
-pub async fn get_permission(
-    auth_session: AuthSession,
-    path: Path<String>,
-) -> Result<Json<Vec<UserPermission>>> {
-    let (id, mut conn) = path_id_is_admin_or_me(auth_session, path).await?;
-    
-    let permissions = get_permissions_iter(&mut conn, id).await?.collect();
-    Ok(Json(permissions))
 }
 
 pub async fn has_permission(
@@ -140,10 +100,4 @@ impl AuthzBackend for Backend {
     }
 }
 
-pub fn add_admin_permission_routes(router: Router<Backend>) -> Router<Backend> {
-    router.route("/permission", post(post_permission))
-}
 
-pub fn add_permission_routes(router: Router<Backend>) -> Router<Backend> {
-    router.route("/permission/:id", get(get_permission))
-}

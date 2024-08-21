@@ -1,16 +1,19 @@
+pub mod public;
+
 use axum::{debug_handler, Json, Router};
 use axum::extract::Path;
 use axum::routing::{get, post};
+use axum_login::UserId;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use utoipa::ToSchema;
 use crate::auth::{AuthSession};
-use crate::backend::Backend;
+use crate::backend::{Backend, DBConnection};
 use crate::error::APIError;
 use crate::error::Result;
 use crate::schema::user_data::user_id;
 use crate::schema::user_data;
-use crate::util::{id_is_admin_or_me, path_id_is_admin_or_me};
+use crate::auth::util::{id_is_admin_or_me, path_id_is_admin_or_me};
 
 #[derive(serde::Serialize, Queryable, Selectable, ToSchema, Debug, PartialEq)]
 #[diesel(table_name = user_data)]
@@ -61,7 +64,7 @@ pub async fn post_user_data(
     Json(new_user_data): Json<NewUserData>
 ) -> Result<()> {
     let (_, mut conn) = id_is_admin_or_me(auth_session, new_user_data.user_id).await?;
-    
+
     diesel::insert_into(user_data::table)
         .values(&new_user_data)
         .on_conflict(user_id)
@@ -84,15 +87,22 @@ pub async fn get_user_data(
     path: Path<String>,
 ) -> Result<Json<UserData>> {
     let (id, mut conn) = path_id_is_admin_or_me(auth_session, path).await?;
-    
+    let user_data = get_user_data_by_id(&mut conn, id).await?;
+    Ok(Json(user_data))
+}
+
+pub async fn get_user_data_by_id(
+    conn: &mut DBConnection, 
+    id: UserId<Backend>
+) -> Result<UserData> {
     let user_data = user_data::table
         .filter(user_id.eq(id))
         .select(UserData::as_select())
         .get_result(&mut conn.0)
         .await
         .map_err(APIError::internal)?;
-
-    Ok(Json(user_data))
+    
+    Ok(user_data)
 }
 
 

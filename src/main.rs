@@ -6,22 +6,23 @@ pub mod backend;
 mod user_data;
 pub mod error;
 pub mod permissions;
-pub mod util;
 
 use axum::{
-    routing::get,
     Router,
+    routing::get,
 };
 use std::net::SocketAddr;
 use axum_login::{AuthManagerLayerBuilder, login_required, permission_required};
 use axum_login::tower_sessions::{MemoryStore, SessionManagerLayer};
 use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use crate::auth::{add_auth_routes, add_admin_auth_routes};
+use crate::auth::routes::{add_admin_auth_routes, add_auth_routes};
 use crate::backend::Backend;
 use crate::open_api::add_swagger_route;
-use crate::permissions::{add_admin_permission_routes, add_permission_routes, has_permission, UserPermission};
+use crate::permissions::{has_permission, UserPermission};
+use crate::permissions::routes::{add_admin_permission_routes, add_permission_routes};
 use crate::user_data::add_user_data_routes;
+use crate::user_data::public::add_public_user_data_routes;
 
 
 #[tokio::main]
@@ -41,7 +42,7 @@ async fn main() {
     let backend = Backend::new().await.unwrap();
     let auth_layer = AuthManagerLayerBuilder::new(backend.clone(), session_layer).build();
     
-    // set up connection pool
+    
     let mut router = Router::<Backend>::new();
     router = add_admin_auth_routes(router);
     router = add_admin_permission_routes(router);
@@ -50,6 +51,7 @@ async fn main() {
     router = add_swagger_route(router);
     router = add_auth_routes(router);
     router = add_user_data_routes(router);
+    router = add_public_user_data_routes(router);
     router = add_permission_routes(router);
 
     router = router.route("/", get(|| async { "This is the Rope Lab Website Backend" }));
