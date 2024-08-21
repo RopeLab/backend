@@ -2,18 +2,19 @@ use axum::{Json, Router};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 use crate::Pool;
-use crate::user::*;
+use crate::auth::*;
 
 #[derive(OpenApi)]
 #[openapi(
     paths(
-        openapi, 
-        create_user, 
-        list_users
+        openapi,
+        sign_up,
+        login,
+        list_users,
     ), 
     components(schemas(
-        User, 
-        NewUser
+        User,
+        Credentials
     )))]
 struct ApiDoc;
 
