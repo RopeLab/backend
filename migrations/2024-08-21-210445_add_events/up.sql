@@ -1,5 +1,5 @@
 -- Your SQL goes here
-CREATE TYPE EventUserState AS ENUM ('registered', 'waiting', 'rejected');
+CREATE TYPE EventUserState AS ENUM ('registered', 'waiting', 'rejected', 'new', 'waiting_new');
 
 CREATE TABLE "event"(
     "id" SERIAL PRIMARY KEY NOT NULL,

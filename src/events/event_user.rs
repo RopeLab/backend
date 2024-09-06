@@ -9,7 +9,9 @@ use crate::schema::event_user;
 pub enum EventUserState {
     Registered, 
     Waiting, 
-    Rejected
+    Rejected, 
+    New,
+    WaitingNew,
 }
 
 #[derive(serde::Serialize, Queryable, Selectable, ToSchema, Debug, PartialEq)]

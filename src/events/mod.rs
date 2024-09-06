@@ -12,24 +12,19 @@ use crate::backend::{Backend, DBConnection};
 use crate::error::APIError;
 use crate::schema::event;
 use crate::error::Result;
+use crate::schema::event::description;
 
-#[derive(serde::Serialize, Queryable, Selectable, ToSchema, Debug, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Queryable, Insertable, Selectable, AsChangeset, ToSchema, Debug, PartialEq)]
 #[diesel(table_name = event)]
 pub struct Event {
-    pub id: i32,
+    pub visible_date: NaiveDateTime,
+    pub register_deadline: NaiveDateTime,
     pub date: NaiveDateTime,
+    pub archive_date: NaiveDateTime,
     pub slots: i32,
     pub visible: bool,
     pub archive: bool,
-}
-
-#[derive(serde::Deserialize, Insertable, AsChangeset, ToSchema, Debug)]
-#[diesel(table_name = event)]
-pub struct NewEvent {
-    pub date: NaiveDateTime,
-    pub slots: i32,
-    pub visible: bool,
-    pub archive: bool,
+    pub description: String,
 }
 
 #[utoipa::path(
@@ -38,7 +33,7 @@ pub struct NewEvent {
 )]
 pub async fn post_event(
     mut conn: DBConnection,
-    Json(new_event): Json<NewEvent>
+    Json(new_event): Json<Event>
 ) -> Result<()> {
     diesel::insert_into(event::table)
         .values(&new_event)

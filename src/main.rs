@@ -26,7 +26,7 @@ use crate::events::{add_admin_event_routes, add_event_routes};
 use crate::open_api::add_swagger_route;
 use crate::permissions::{has_permission, UserPermission};
 use crate::permissions::routes::{add_admin_permission_routes, add_permission_routes};
-use crate::user_data::add_user_data_routes;
+use crate::user_data::{add_admin_user_data_routes, add_user_data_routes};
 use crate::user_data::public::add_public_user_data_routes;
 
 #[tokio::main]
@@ -57,6 +57,7 @@ async fn main() {
     router = add_admin_auth_routes(router);
     router = add_admin_permission_routes(router);
     router = add_admin_event_routes(router);
+    router = add_admin_user_data_routes(router);
     router = router.route_layer(permission_required!(Backend, UserPermission::Admin));
 
     router = add_swagger_route(router);

@@ -2,15 +2,19 @@ use argon2::{Argon2, PasswordHasher};
 use argon2::password_hash::rand_core::OsRng;
 use argon2::password_hash::SaltString;
 use axum::{debug_handler, Json, Router};
+use axum::extract::Path;
 use axum::routing::{get, post};
 use axum_login::{AuthnBackend, UserId};
 use diesel::{Insertable, Queryable, QueryDsl, SelectableHelper};
 use diesel_async::RunQueryDsl;
+use diesel::ExpressionMethods;
 use utoipa::ToSchema;
 use crate::auth::{AuthSession, Credentials, get_user_with_email, NewUser, User};
+use crate::auth::util::path_id_is_admin_or_me;
 use crate::backend::{Backend, DBConnection};
 use crate::error::{APIError};
 use crate::schema::users;
+use crate::schema::users::{email, id};
 
 
 #[utoipa::path(
@@ -85,9 +89,28 @@ async fn logout(mut auth_session: AuthSession) -> crate::error::Result<()> {
 
 #[utoipa::path(
     get,
-    path = "/user/list"
+    path = "/user/{id}/email"
 )]
-async fn list_users(DBConnection(mut conn): DBConnection) -> crate::error::Result<Json<Vec<User>>> {
+#[debug_handler]
+pub async fn get_email(
+    auth_session: AuthSession,
+    path: Path<String>,
+) -> crate::error::Result<Json<String>> {
+    let (u_id, mut conn) = path_id_is_admin_or_me(auth_session, path).await?;
+    let mail = users::table
+        .filter(id.eq(u_id))
+        .select(email)
+        .get_result(&mut conn.0)
+        .await
+        .map_err(APIError::internal)?;
+    Ok(Json(mail))
+}
+
+#[utoipa::path(
+    get,
+    path = "/user/all"
+)]
+async fn get_all_users(DBConnection(mut conn): DBConnection) -> crate::error::Result<Json<Vec<User>>> {
     let res = users::table
         .select(User::as_select())
         .load(&mut conn)
@@ -100,8 +123,9 @@ pub fn add_auth_routes(router: Router<Backend>) -> Router<Backend> {
     router.route("/signup", post(sign_up))
         .route("/login", post(login))
         .route("/logout", post(login))
+        .route("/user/:id/email", get(get_email))
 }
 
 pub fn add_admin_auth_routes(router: Router<Backend>) -> Router<Backend> {
-    router.route("/user/list", get(list_users))
+    router.route("/user/all", get(get_all_users))
 }

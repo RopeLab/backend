@@ -17,6 +17,10 @@ diesel::table! {
         slots -> Int4,
         visible -> Bool,
         archive -> Bool,
+        register_deadline -> Timestamp,
+        visible_date -> Timestamp,
+        archive_date -> Timestamp,
+        description -> Text,
     }
 }
 
@@ -56,13 +60,11 @@ diesel::table! {
         found_us_text -> Text,
         goal_text -> Text,
         role_factor -> Float8,
-        active_factor -> Float8,
-        passive_factor -> Float8,
         open -> Bool,
         show_name -> Bool,
         show_role -> Bool,
-        show_experience -> Bool,
         show_open -> Bool,
+        new -> Bool,
     }
 }
 

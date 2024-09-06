@@ -17,9 +17,11 @@ use crate::events::*;
         sign_up,
         login,
         logout,
-        list_users,
+        get_email,
+        get_all_users,
         get_user_data,
         post_user_data,
+        get_user_data_all,
         post_permission,
         get_permission,
         get_public_user_data,
@@ -31,12 +33,10 @@ use crate::events::*;
         User,
         Credentials,
         UserData,
-        NewUserData,
         Permission,
         NewPermission,
         PublicUserData,
         Event,
-        NewEvent,
     )))]
 struct ApiDoc;
 

@@ -11,12 +11,9 @@ use crate::error::Result;
 
 #[derive(serde::Serialize, ToSchema, Debug, PartialEq)]
 pub struct PublicUserData {
-    pub id: i32,
     pub user_id: i32,
     pub name: Option<String>,
     pub role_factor: Option<f64>,
-    pub active_factor: Option<f64>,
-    pub passive_factor: Option<f64>,
     pub open: Option<bool>,
 }
 
@@ -39,12 +36,9 @@ pub async fn get_public_user_data(
 impl From<UserData> for PublicUserData {
     fn from(user_data: UserData) -> Self {
         PublicUserData {
-            id: user_data.id,
             user_id: user_data.user_id,
             name: if user_data.show_name {Some(user_data.name)} else {None},
             role_factor: if user_data.show_role {Some(user_data.role_factor)} else {None},
-            active_factor: if user_data.show_experience {Some(user_data.active_factor)} else {None},
-            passive_factor: if user_data.show_experience {Some(user_data.passive_factor)} else {None},
             open: if user_data.show_open {Some(user_data.open)} else {None},
         }
     }

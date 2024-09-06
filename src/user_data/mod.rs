@@ -15,10 +15,9 @@ use crate::schema::user_data::user_id;
 use crate::schema::user_data;
 use crate::auth::util::{id_is_admin_or_me, path_id_is_admin_or_me};
 
-#[derive(serde::Serialize, Queryable, Selectable, ToSchema, Debug, PartialEq)]
+#[derive(serde::Deserialize, Insertable, AsChangeset, ToSchema, Debug, serde::Serialize, Queryable, Selectable, PartialEq)]
 #[diesel(table_name = user_data)]
 pub struct UserData {
-    pub id: i32,
     pub user_id: i32,
     pub name: String,
     pub fetlife_name: String,
@@ -26,32 +25,11 @@ pub struct UserData {
     pub found_us_text: String,
     pub goal_text: String,
     pub role_factor: f64,
-    pub active_factor: f64,
-    pub passive_factor: f64,
     pub open: bool,
     pub show_name: bool,
     pub show_role: bool,
-    pub show_experience: bool,
     pub show_open: bool,
-}
-
-#[derive(serde::Deserialize, Insertable, AsChangeset, ToSchema, Debug)]
-#[diesel(table_name = user_data)]
-pub struct NewUserData {
-    pub user_id: i32,
-    pub name: String,
-    pub fetlife_name: String,
-    pub experience_text: String,
-    pub found_us_text: String,
-    pub goal_text: String,
-    pub role_factor: f64,
-    pub active_factor: f64,
-    pub passive_factor: f64,
-    pub open: bool,
-    pub show_name: bool,
-    pub show_role: bool,
-    pub show_experience: bool,
-    pub show_open: bool,
+    pub new: bool,
 }
 
 #[utoipa::path(
@@ -61,7 +39,7 @@ pub struct NewUserData {
 #[debug_handler]
 pub async fn post_user_data(
     auth_session: AuthSession,
-    Json(new_user_data): Json<NewUserData>
+    Json(new_user_data): Json<UserData>
 ) -> Result<()> {
     let (_, mut conn) = id_is_admin_or_me(auth_session, new_user_data.user_id).await?;
 
@@ -105,6 +83,23 @@ pub async fn get_user_data_by_id(
     Ok(user_data)
 }
 
+#[utoipa::path(
+    get,
+    path = "/user_data/all"
+)]
+pub async fn get_user_data_all(DBConnection(mut conn): DBConnection) -> Result<Json<Vec<UserData>>> {
+    let user_data = user_data::table
+        .select(UserData::as_select())
+        .get_results(&mut conn)
+        .await
+        .map_err(APIError::internal)?;
+
+    Ok(Json(user_data))
+}
+
+pub fn add_admin_user_data_routes(router: Router<Backend>) -> Router<Backend> {
+    router.route("/user_data/all", get(get_user_data_all))
+}
 
 
 pub fn add_user_data_routes(router: Router<Backend>) -> Router<Backend> {
