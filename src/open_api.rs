@@ -1,3 +1,4 @@
+use crate::events::event_user::EventUser;
 use axum::{Json, Router};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
@@ -5,10 +6,10 @@ use crate::backend::Backend;
 use crate::auth::*;
 use crate::auth::routes::*;
 use crate::user_data::*;
-use crate::user_data::public::*;
 use crate::permissions::*;
 use crate::permissions::routes::*;
 use crate::events::*;
+use crate::events::event_user::*;
 
 #[derive(OpenApi)]
 #[openapi(
@@ -24,10 +25,12 @@ use crate::events::*;
         get_user_data_all,
         post_permission,
         get_permission,
-        get_public_user_data,
         post_event,
+        update_event,
+        delete_event,
         get_event,
         get_event_all,
+        get_event_users,
     ), 
     components(schemas(
         User,
@@ -35,8 +38,10 @@ use crate::events::*;
         UserData,
         Permission,
         NewPermission,
-        PublicUserData,
         Event,
+        NewEvent,
+        EventUser,
+        PublicEventUser
     )))]
 struct ApiDoc;
 

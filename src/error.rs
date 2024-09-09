@@ -1,8 +1,7 @@
 use std::error::Error;
 use std::fmt;
-use std::fmt::{Display, Formatter};
-use axum::response::{IntoResponse, Response};
-use http::StatusCode;
+use std::fmt::{Display};
+use axum::response::{IntoResponse};
 
 pub type Result<T> = std::result::Result<T, APIError>;
 
@@ -16,20 +15,24 @@ pub enum APIError {
     UNAUTHORIZED,
 
     #[status_code(FORBIDDEN)]
-    #[message("EmailUsed")]
+    #[message("Email used")]
     EmailUsed,
 
     #[status_code(FORBIDDEN)]
-    #[message("InvalidCredentials")]
+    #[message("Invalid credentials")]
     InvalidCredentials,
 
     #[status_code(NOT_ACCEPTABLE)]
-    #[message("PermissionAlreadyAdded")]
+    #[message("Permission already added")]
     PermissionAlreadyAdded,
 
     #[status_code(NOT_ACCEPTABLE)]
-    #[message("InvalidPath")]
+    #[message("Invalid path")]
     InvalidPath,
+
+    #[status_code(NOT_ACCEPTABLE)]
+    #[message("Event ids dont match")]
+    EventIdsDontMatch,
 }
 
 

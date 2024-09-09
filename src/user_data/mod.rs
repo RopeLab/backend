@@ -1,4 +1,3 @@
-pub mod public;
 
 use axum::{debug_handler, Json, Router};
 use axum::extract::Path;
