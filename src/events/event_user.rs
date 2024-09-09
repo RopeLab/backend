@@ -2,16 +2,17 @@
 use crate::auth::AuthSession;
 use axum::{Json, Router};
 use axum::extract::Path;
-use axum::routing::get;
+use axum::routing::{get, post};
 use diesel::prelude::*;
 use utoipa::ToSchema;
-use crate::auth::util::{is_logged_in, parse_path_id};
-use crate::backend::{Backend};
+use crate::auth::util::{id_is_admin_or_me, is_logged_in, parse_path_id};
+use crate::backend::{Backend, DBConnection};
 use diesel_async::RunQueryDsl;
 use crate::error::APIError;
 use crate::schema::{event_user, user_data};
 use crate::user_data::UserData;
 use crate::error::Result;
+
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 #[derive(diesel_derive_enum::DbEnum)]
@@ -44,6 +45,12 @@ pub struct PublicEventUser {
     pub open: Option<bool>,
     pub slot: i32,
     pub state: EventUserState,
+    pub guests: i32,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, ToSchema, Debug, PartialEq)]
+pub struct RegisterEvent {
+    pub user_id: i32,
     pub guests: i32,
 }
 
@@ -81,7 +88,38 @@ pub async fn get_event_users(
     Ok(Json(result))
 }
 
+#[utoipa::path(
+    post,
+    path = "/event/{event_id}/register"
+)]
+pub async fn register_to_event(
+    auth: AuthSession,
+    path: Path<String>,
+    Json(register_event): Json<RegisterEvent>
+) -> Result<()> {
+    let (user_id, mut conn) = id_is_admin_or_me(auth, register_event.user_id).await?;
+    let event_id = parse_path_id(path)?;
+
+    let event_user = EventUser{
+        user_id,
+        event_id,
+        slot: 0,
+        state: EventUserState::Registered,
+        guests: register_event.guests,
+        attended: false,
+    };
+
+    diesel::insert_into(event_user::table)
+        .values(&event_user)
+        .on_conflict((event_user::event_id, event_user::user_id))
+        .do_nothing()
+        .execute(&mut conn.0)
+        .await
+        .map_err(APIError::internal)?;
+    Ok(())
+}
+
 pub fn add_event_user_routes(router: Router<Backend>) -> Router<Backend> {
     router.route("/event/:id/users", get(get_event_users))
-
+        .route("/event/:event_id/register", post(register_to_event))
 }
