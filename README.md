@@ -1,37 +1,57 @@
 # backend
 
-## Setup 
+## Dev environment 
 
-shh tunnel postgres database
+### Nix
+If you want to use nix shell to install all needed programs
+```shell
+nix-shell ./shell.nix
+```
+
+#### Without Nix 
+Install these programs:
+- rust (cargo) https://www.rust-lang.org/tools/install
+- clang (cpp compilation of some rust libraries) https://clang.llvm.org/
+- diesel-cli (The ORM we use)
+- dbeaver (To view the database content) https://dbeaver.io/
+
+
+### Database
+To use the postgres database you need an ssh tunnel from userspace.
+You ssh public key needs to be known by userspace to connect via ssh.
 ```shell
 ssh -L 5432:127.0.0.1:5432 ropelab@betelgeuse.uberspace.de
 ```
 
-## Run
-```shell
-cargo run
-```
-
-## Tools
-### Debug database 
+To debug the database you can use [dbeaver](https://dbeaver.io/)
 ```shell
 dbeaver
 ```
 
-### Create new migrations
+### Backend
+The backend is written in rust. 
+Just run it compiles everything and start the backend on http://localhost:3001/swagger-ui/
 ```shell
-diesel migration generate add_deadline_data_to_events
+cargo run
 ```
 
-### Apply migrations
+### ORM with diesel
+
+#### Create new migrations
+```shell
+diesel migration generate NAME
+```
+
+#### Apply migrations
 ```shell
 diesel migration run
 ```
 
-### Recreate all migrations
+#### Recreate all migrations
 ```shell
 diesel migration redo
 ```
 
-### Fixing Handler Compile Problems 
-`#[debug_handler]`
+## Notes
+### Debugging Handler Compile Problems 
+add to function `#[debug_handler]`
