@@ -33,6 +33,10 @@ pub enum APIError {
     #[status_code(NOT_ACCEPTABLE)]
     #[message("Event ids dont match")]
     EventIdsDontMatch,
+
+    #[status_code(NOT_ACCEPTABLE)]
+    #[message("The User is already registered to the event")]
+    UserAlreadyRegistered,
 }
 
 

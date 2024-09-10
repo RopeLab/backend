@@ -3,6 +3,7 @@ use crate::auth::AuthSession;
 use axum::{Json, Router};
 use axum::extract::Path;
 use axum::routing::{get, post};
+use axum_login::UserId;
 use diesel::prelude::*;
 use utoipa::ToSchema;
 use crate::auth::util::{id_is_admin_or_me, is_logged_in, parse_path_id};
@@ -12,6 +13,7 @@ use crate::error::APIError;
 use crate::schema::{event_user, user_data};
 use crate::user_data::UserData;
 use crate::error::Result;
+use crate::schema::event_user::guests;
 
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -49,7 +51,7 @@ pub struct PublicEventUser {
 }
 
 #[derive(serde::Serialize, serde::Deserialize, ToSchema, Debug, PartialEq)]
-pub struct RegisterEvent {
+pub struct UserAndGuests {
     pub user_id: i32,
     pub guests: i32,
 }
@@ -95,9 +97,9 @@ pub async fn get_event_users(
 pub async fn register_to_event(
     auth: AuthSession,
     path: Path<String>,
-    Json(register_event): Json<RegisterEvent>
+    Json(user_and_guests): Json<UserAndGuests>
 ) -> Result<()> {
-    let (user_id, mut conn) = id_is_admin_or_me(auth, register_event.user_id).await?;
+    let (user_id, mut conn) = id_is_admin_or_me(auth, user_and_guests.user_id).await?;
     let event_id = parse_path_id(path)?;
 
     let event_user = EventUser{
@@ -105,21 +107,83 @@ pub async fn register_to_event(
         event_id,
         slot: 0,
         state: EventUserState::Registered,
-        guests: register_event.guests,
+        guests: user_and_guests.guests,
         attended: false,
     };
+    
+    let already_present = event_user::table
+        .filter(event_user::event_id.eq(event_id))
+        .filter(event_user::user_id.eq(user_id))
+        .select(EventUser::as_select())
+        .get_result(&mut conn.0)
+        .await
+        .is_ok();
+    
+    if !already_present {
+        diesel::insert_into(event_user::table)
+            .values(&event_user)
+            .execute(&mut conn.0)
+            .await
+            .map_err(APIError::internal)?;
+    } else {
+        return Err(APIError::UserAlreadyRegistered);
+    }
 
-    diesel::insert_into(event_user::table)
-        .values(&event_user)
-        .on_conflict((event_user::event_id, event_user::user_id))
-        .do_nothing()
+    // TODO should use on conflict but somehow it doesn't work 
+    // .on_conflict((event_user::event_id, event_user::user_id))
+    // .do_nothing()
+    
+    Ok(())
+}
+
+#[utoipa::path(
+    post,
+    path = "/event/{event_id}/unregister"
+)]
+pub async fn unregister_from_event(
+    auth: AuthSession,
+    path: Path<String>,
+    Json(user_id): Json<UserId<Backend>>
+) -> Result<()> {
+    let (user_id, mut conn) = id_is_admin_or_me(auth, user_id).await?;
+    let event_id = parse_path_id(path)?;
+    
+    diesel::delete(event_user::table)
+        .filter(event_user::event_id.eq(event_id))
+        .filter(event_user::user_id.eq(user_id))
         .execute(&mut conn.0)
         .await
         .map_err(APIError::internal)?;
+    
+    Ok(())
+}
+
+#[utoipa::path(
+    post,
+    path = "/event/{event_id}/change_guests"
+)]
+pub async fn change_guests(
+    auth: AuthSession,
+    path: Path<String>,
+    Json(user_and_guests): Json<UserAndGuests>
+) -> Result<()> {
+    let (user_id, mut conn) = id_is_admin_or_me(auth, user_and_guests.user_id).await?;
+    let event_id = parse_path_id(path)?;
+
+    diesel::update(event_user::table)
+        .filter(event_user::event_id.eq(event_id))
+        .filter(event_user::user_id.eq(user_id))
+        .set(guests.eq(user_and_guests.guests))
+        .execute(&mut conn.0)
+        .await
+        .map_err(APIError::internal)?;
+
     Ok(())
 }
 
 pub fn add_event_user_routes(router: Router<Backend>) -> Router<Backend> {
     router.route("/event/:id/users", get(get_event_users))
         .route("/event/:event_id/register", post(register_to_event))
+        .route("/event/:event_id/unregister", post(unregister_from_event))
+        .route("/event/:event_id/change_guests", post(change_guests))
 }

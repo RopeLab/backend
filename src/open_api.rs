@@ -31,6 +31,9 @@ use crate::events::event_user::*;
         get_event,
         get_event_all,
         get_event_users,
+        register_to_event,
+        unregister_from_event,
+        change_guests
     ), 
     components(schemas(
         User,
@@ -41,7 +44,8 @@ use crate::events::event_user::*;
         Event,
         NewEvent,
         EventUser,
-        PublicEventUser
+        PublicEventUser,
+        UserAndGuests,
     )))]
 struct ApiDoc;
 
