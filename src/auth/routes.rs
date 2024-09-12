@@ -122,7 +122,7 @@ async fn get_all_users(DBConnection(mut conn): DBConnection) -> crate::error::Re
 pub fn add_auth_routes(router: Router<Backend>) -> Router<Backend> {
     router.route("/signup", post(sign_up))
         .route("/login", post(login))
-        .route("/logout", post(login))
+        .route("/logout", post(logout))
         .route("/user/:id/email", get(get_email))
 }
 
