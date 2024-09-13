@@ -4,9 +4,10 @@ use http::header::{ACCEPT, ACCESS_CONTROL_ALLOW_ORIGIN, AUTHORIZATION, CONTENT_T
 use tower_http::cors::CorsLayer;
 use crate::backend::Backend;
 
-const FRONT_END_URLS: [&str; 2] = [
+const FRONT_END_URLS: [&str; 3] = [
     "http://localhost:3000", 
-    "http://localhost:1313"
+    "http://localhost:1313",
+    "http://localhost:5173"
 ];
 pub fn add_cors_layer(router: Router<Backend>) -> Router<Backend> {
     let origins = FRONT_END_URLS.map(|s| s.parse::<HeaderValue>().unwrap());

@@ -16,7 +16,7 @@ use crate::auth::util::path_id_is_admin_or_me;
 pub async fn post_permission(
     mut conn: DBConnection,
     Json(new_permission): Json<NewPermission>
-) -> crate::error::Result<()> {
+) -> crate::error::APIResult<()> {
 
     if has_permission(&mut conn, new_permission.user_id, new_permission.user_permission).await {
         return Err(APIError::PermissionAlreadyAdded)
@@ -39,7 +39,7 @@ pub async fn post_permission(
 pub async fn get_permission(
     auth_session: AuthSession,
     path: Path<String>,
-) -> crate::error::Result<Json<Vec<UserPermission>>> {
+) -> crate::error::APIResult<Json<Vec<UserPermission>>> {
     let (id, mut conn) = path_id_is_admin_or_me(auth_session, path).await?;
 
     let permissions = get_permissions_iter(&mut conn, id).await?.collect();

@@ -12,7 +12,7 @@ use crate::auth::util::parse_path_id;
 use crate::backend::{Backend, DBConnection};
 use crate::error::APIError;
 use crate::schema::event;
-use crate::error::Result;
+use crate::error::APIResult;
 
 #[derive(serde::Serialize, serde::Deserialize, Queryable, Insertable, Selectable, AsChangeset, ToSchema, Debug, PartialEq)]
 #[diesel(table_name = event)]
@@ -49,7 +49,7 @@ pub struct NewEvent {
 pub async fn post_event(
     mut conn: DBConnection,
     Json(new_event): Json<NewEvent>
-) -> Result<()> {
+) -> APIResult<()> {
     diesel::insert_into(event::table)
         .values(&new_event)
         .execute(&mut conn.0)
@@ -66,7 +66,7 @@ pub async fn update_event(
     mut conn: DBConnection,
     path: Path<String>,
     Json(event): Json<Event>
-) -> Result<()> {
+) -> APIResult<()> {
     let event_id = parse_path_id(path)?;
     if event_id != event.id {
         return Err(APIError::EventIdsDontMatch)
@@ -88,7 +88,7 @@ pub async fn update_event(
 pub async fn get_event(
     mut conn: DBConnection,
     path: Path<String>,
-) -> Result<Json<Event>> {
+) -> APIResult<Json<Event>> {
     let event_id = parse_path_id(path)?;
     let event = event::table
         .filter(event::id.eq(event_id))
@@ -106,7 +106,7 @@ pub async fn get_event(
 pub async fn delete_event(
     mut conn: DBConnection,
     path: Path<String>,
-) -> Result<()> {
+) -> APIResult<()> {
     let event_id = parse_path_id(path)?;
     diesel::delete(event::table)
         .filter(event::id.eq(event_id))
@@ -120,7 +120,7 @@ pub async fn delete_event(
     get,
     path = "/event/all"
 )]
-pub async fn get_event_all(mut conn: DBConnection) -> Result<Json<Vec<Event>>> {
+pub async fn get_event_all(mut conn: DBConnection) -> APIResult<Json<Vec<Event>>> {
     let event = event::table
         .select(Event::as_select())
         .get_results(&mut conn.0)

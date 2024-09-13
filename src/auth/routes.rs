@@ -8,14 +8,12 @@ use axum_login::{AuthnBackend, UserId};
 use diesel::{Insertable, Queryable, QueryDsl, SelectableHelper};
 use diesel_async::RunQueryDsl;
 use diesel::ExpressionMethods;
-use utoipa::ToSchema;
 use crate::auth::{AuthSession, Credentials, get_user_with_email, NewUser, User};
-use crate::auth::util::path_id_is_admin_or_me;
+use crate::auth::util::{get_logged_in_id, path_id_is_admin_or_me};
 use crate::backend::{Backend, DBConnection};
-use crate::error::{APIError};
+use crate::error::{APIError, APIResult};
 use crate::schema::users;
 use crate::schema::users::{email, id};
-
 
 #[utoipa::path(
     post,
@@ -24,7 +22,7 @@ use crate::schema::users::{email, id};
 async fn sign_up(
     mut conn: DBConnection,
     Json(credentials): Json<Credentials>
-) -> crate::error::Result<()> {
+) -> APIResult<()> {
 
     if get_user_with_email(&mut conn, &credentials.email).await.is_some() {
         return Err(APIError::EmailUsed);
@@ -56,7 +54,7 @@ async fn sign_up(
 async fn login(
     mut auth_session: AuthSession,
     Json(credentials): Json<Credentials>,
-) -> crate::error::Result<Json<UserId<Backend>>> {
+) -> APIResult<Json<UserId<Backend>>> {
     let user = match auth_session.authenticate(credentials.clone()).await {
         Ok(Some(user)) => user,
         Ok(None) => return Err(APIError::InvalidCredentials),
@@ -75,7 +73,7 @@ async fn login(
     path = "/logout"
 )]
 #[debug_handler]
-async fn logout(mut auth_session: AuthSession) -> crate::error::Result<()> {
+async fn logout(mut auth_session: AuthSession) -> APIResult<()> {
     if auth_session.user.is_none() {
         return Err(APIError::UNAUTHORIZED);
     }
@@ -89,13 +87,25 @@ async fn logout(mut auth_session: AuthSession) -> crate::error::Result<()> {
 
 #[utoipa::path(
     get,
+    path = "/user/id"
+)]
+#[debug_handler]
+pub async fn get_id(
+    auth_session: AuthSession,
+) -> APIResult<Json<UserId<Backend>>> {
+    let user_id = get_logged_in_id(auth_session).await?;
+    Ok(Json(user_id))
+}
+
+#[utoipa::path(
+    get,
     path = "/user/{id}/email"
 )]
 #[debug_handler]
 pub async fn get_email(
     auth_session: AuthSession,
     path: Path<String>,
-) -> crate::error::Result<Json<String>> {
+) -> crate::error::APIResult<Json<String>> {
     let (u_id, mut conn) = path_id_is_admin_or_me(auth_session, path).await?;
     let mail = users::table
         .filter(id.eq(u_id))
@@ -110,7 +120,7 @@ pub async fn get_email(
     get,
     path = "/user/all"
 )]
-async fn get_all_users(DBConnection(mut conn): DBConnection) -> crate::error::Result<Json<Vec<User>>> {
+async fn get_all_users(DBConnection(mut conn): DBConnection) -> crate::error::APIResult<Json<Vec<User>>> {
     let res = users::table
         .select(User::as_select())
         .load(&mut conn)
@@ -123,6 +133,7 @@ pub fn add_auth_routes(router: Router<Backend>) -> Router<Backend> {
     router.route("/signup", post(sign_up))
         .route("/login", post(login))
         .route("/logout", post(logout))
+        .route("/user/id", get(get_id))
         .route("/user/:id/email", get(get_email))
 }
 

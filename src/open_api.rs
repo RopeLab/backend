@@ -19,6 +19,7 @@ use crate::events::user_action::*;
         sign_up,
         login,
         logout,
+        get_id,
         get_email,
         get_all_users,
         get_user_data,

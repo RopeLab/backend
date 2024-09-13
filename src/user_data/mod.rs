@@ -9,7 +9,7 @@ use utoipa::ToSchema;
 use crate::auth::{AuthSession};
 use crate::backend::{Backend, DBConnection};
 use crate::error::APIError;
-use crate::error::Result;
+use crate::error::APIResult;
 use crate::schema::user_data::user_id;
 use crate::schema::user_data;
 use crate::auth::util::{id_is_admin_or_me, path_id_is_admin_or_me};
@@ -39,7 +39,7 @@ pub struct UserData {
 pub async fn post_user_data(
     auth_session: AuthSession,
     Json(new_user_data): Json<UserData>
-) -> Result<()> {
+) -> APIResult<()> {
     let (_, mut conn) = id_is_admin_or_me(auth_session, new_user_data.user_id).await?;
 
     diesel::insert_into(user_data::table)
@@ -62,7 +62,7 @@ pub async fn post_user_data(
 pub async fn get_user_data(
     auth_session: AuthSession,
     path: Path<String>,
-) -> Result<Json<UserData>> {
+) -> APIResult<Json<UserData>> {
     let (id, mut conn) = path_id_is_admin_or_me(auth_session, path).await?;
     let user_data = get_user_data_by_id(&mut conn, id).await?;
     Ok(Json(user_data))
@@ -71,7 +71,7 @@ pub async fn get_user_data(
 pub async fn get_user_data_by_id(
     conn: &mut DBConnection, 
     id: UserId<Backend>
-) -> Result<UserData> {
+) -> APIResult<UserData> {
     let user_data = user_data::table
         .filter(user_id.eq(id))
         .select(UserData::as_select())
@@ -86,7 +86,7 @@ pub async fn get_user_data_by_id(
     get,
     path = "/user_data/all"
 )]
-pub async fn get_user_data_all(DBConnection(mut conn): DBConnection) -> Result<Json<Vec<UserData>>> {
+pub async fn get_user_data_all(DBConnection(mut conn): DBConnection) -> APIResult<Json<Vec<UserData>>> {
     let user_data = user_data::table
         .select(UserData::as_select())
         .get_results(&mut conn)

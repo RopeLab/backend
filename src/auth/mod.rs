@@ -10,7 +10,7 @@ use utoipa::ToSchema;
 use crate::backend::{Backend, DBConnection};
 use crate::error::APIError;
 use crate::schema::users;
-use crate::error::Result;
+use crate::error::APIResult;
 
 pub type AuthSession = axum_login::AuthSession<Backend>;
 
@@ -62,7 +62,7 @@ impl AuthnBackend for Backend {
     type Credentials = Credentials;
     type Error = APIError;
 
-    async fn authenticate(&self, credentials: Credentials) -> Result<Option<User>> {
+    async fn authenticate(&self, credentials: Credentials) -> APIResult<Option<User>> {
         let mut conn = self.get_connection().await?;
         let user = get_user_with_email(&mut conn, &credentials.email).await;
         if user.is_none() { return Ok(None) }
@@ -79,7 +79,7 @@ impl AuthnBackend for Backend {
     async fn get_user(
         &self,
         user_id: &UserId<Self>,
-    ) -> Result<Option<Self::User>> {
+    ) -> APIResult<Option<Self::User>> {
         let mut conn = self.db_pool
             .get()
             .await

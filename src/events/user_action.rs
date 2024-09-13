@@ -10,7 +10,7 @@ use crate::auth::util::{id_is_admin_or_me, parse_path_id};
 use crate::backend::{Backend, DBConnection};
 use crate::error::APIError;
 use crate::schema::{user_action};
-use crate::error::Result;
+use crate::error::APIResult;
 use crate::events::event_user::{EventUser, EventUserState};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde_repr::Serialize_repr, serde_repr::Deserialize_repr)]
@@ -41,7 +41,7 @@ pub async fn log_user_action_from_event_user(
     event_user: EventUser,
     action: EventUserAction,
     conn: DBConnection
-) -> Result<()> {
+) -> APIResult<()> {
     let waiting = event_user.state == EventUserState::Waiting || event_user.state == EventUserState::WaitingNew;
     let new = event_user.state == EventUserState::New || event_user.state == EventUserState::WaitingNew;
     log_user_action(event_user.user_id, event_user.event_id, action, waiting, new, event_user.guests, conn).await?;
@@ -57,7 +57,7 @@ pub async fn log_user_action(
     in_new: bool, 
     guests: i32,
     mut conn: DBConnection
-) -> Result<()> {
+) -> APIResult<()> {
     diesel::insert_into(user_action::table)
         .values(UserAction {
             user_id,
@@ -82,7 +82,7 @@ pub async fn log_user_action(
 pub async fn get_user_actions(
     auth: AuthSession,
     path: Path<String>,
-) -> Result<Json<Vec<UserAction>>> {
+) -> APIResult<Json<Vec<UserAction>>> {
     let user_id = parse_path_id(path)?;
     let (_, mut conn) = id_is_admin_or_me(auth, user_id).await?;
 

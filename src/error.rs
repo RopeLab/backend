@@ -3,7 +3,7 @@ use std::fmt;
 use std::fmt::{Display};
 use axum::response::{IntoResponse};
 
-pub type Result<T> = std::result::Result<T, APIError>;
+pub type APIResult<T> = Result<T, APIError>;
 
 #[derive(Debug, Clone)]
 #[derive(axum_enum_response::EnumIntoResponse)]

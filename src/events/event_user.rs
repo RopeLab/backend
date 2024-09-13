@@ -12,7 +12,7 @@ use diesel_async::RunQueryDsl;
 use crate::error::APIError;
 use crate::schema::{event_user, user_data};
 use crate::user_data::UserData;
-use crate::error::Result;
+use crate::error::APIResult;
 use crate::events::user_action::{EventUserAction, log_user_action_from_event_user};
 use crate::schema::event_user::guests;
 
@@ -64,7 +64,7 @@ pub struct UserAndGuests {
 pub async fn get_event_users(
     auth: AuthSession,
     path: Path<String>,
-) -> Result<Json<Vec<PublicEventUser>>> {
+) -> APIResult<Json<Vec<PublicEventUser>>> {
     let mut conn = is_logged_in(auth).await?;
     let event_id = parse_path_id(path)?;
     
@@ -99,7 +99,7 @@ pub async fn register_to_event(
     auth: AuthSession,
     path: Path<String>,
     Json(user_and_guests): Json<UserAndGuests>
-) -> Result<()> {
+) -> APIResult<()> {
     let (user_id, mut conn) = id_is_admin_or_me(auth, user_and_guests.user_id).await?;
     let event_id = parse_path_id(path)?;
 
@@ -147,7 +147,7 @@ pub async fn unregister_from_event(
     auth: AuthSession,
     path: Path<String>,
     Json(user_id): Json<UserId<Backend>>
-) -> Result<()> {
+) -> APIResult<()> {
     let (user_id, mut conn) = id_is_admin_or_me(auth, user_id).await?;
     let event_id = parse_path_id(path)?;
     
@@ -172,7 +172,7 @@ pub async fn change_guests(
     auth: AuthSession,
     path: Path<String>,
     Json(user_and_guests): Json<UserAndGuests>
-) -> Result<()> {
+) -> APIResult<()> {
     let (user_id, mut conn) = id_is_admin_or_me(auth, user_and_guests.user_id).await?;
     let event_id = parse_path_id(path)?;
 

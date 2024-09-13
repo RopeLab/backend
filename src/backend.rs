@@ -3,7 +3,7 @@ use axum::extract::{FromRef, FromRequestParts};
 use diesel_async::AsyncPgConnection;
 use diesel_async::pooled_connection::AsyncDieselConnectionManager;
 use http::request::Parts;
-use crate::error::{APIError, Result};
+use crate::error::{APIError, APIResult};
 
 pub type DBPool = bb8::Pool<AsyncDieselConnectionManager<AsyncPgConnection>>;
 
@@ -18,7 +18,7 @@ pub struct DBConnection (
 
 
 impl Backend {
-    pub async fn new() -> Result<Self> {
+    pub async fn new() -> APIResult<Self> {
         let db_url = std::env::var("DATABASE_URL").unwrap();
         let config = AsyncDieselConnectionManager::<AsyncPgConnection>::new(db_url);
         let pool = DBPool::builder()
@@ -31,7 +31,7 @@ impl Backend {
         })
     }
 
-    pub async fn get_connection(&self) -> Result<DBConnection> {
+    pub async fn get_connection(&self) -> APIResult<DBConnection> {
         let conn = self.db_pool
             .get_owned()
             .await
@@ -48,7 +48,7 @@ impl<S> FromRequestParts<S> for DBConnection
 {
     type Rejection = APIError;
 
-    async fn from_request_parts(_parts: &mut Parts, state: &S) -> Result<Self> {
+    async fn from_request_parts(_parts: &mut Parts, state: &S) -> APIResult<Self> {
         let backend = Backend::from_ref(state);
         backend.get_connection().await
     }
