@@ -2,6 +2,10 @@
 
 pub mod sql_types {
     #[derive(diesel::query_builder::QueryId, diesel::sql_types::SqlType)]
+    #[diesel(postgres_type(name = "eventuseraction"))]
+    pub struct Eventuseraction;
+
+    #[derive(diesel::query_builder::QueryId, diesel::sql_types::SqlType)]
     #[diesel(postgres_type(name = "eventuserstate"))]
     pub struct Eventuserstate;
 
@@ -51,6 +55,22 @@ diesel::table! {
 }
 
 diesel::table! {
+    use diesel::sql_types::*;
+    use super::sql_types::Eventuseraction;
+
+    user_action (id) {
+        id -> Int4,
+        user_id -> Int4,
+        event_id -> Int4,
+        date -> Timestamp,
+        action -> Eventuseraction,
+        in_waiting -> Bool,
+        in_new -> Bool,
+        guests -> Int4,
+    }
+}
+
+diesel::table! {
     user_data (id) {
         id -> Int4,
         user_id -> Int4,
@@ -79,12 +99,15 @@ diesel::table! {
 diesel::joinable!(event_user -> event (event_id));
 diesel::joinable!(event_user -> users (user_id));
 diesel::joinable!(permission -> users (user_id));
+diesel::joinable!(user_action -> event (event_id));
+diesel::joinable!(user_action -> users (user_id));
 diesel::joinable!(user_data -> users (user_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     event,
     event_user,
     permission,
+    user_action,
     user_data,
     users,
 );

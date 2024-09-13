@@ -7,16 +7,17 @@ use axum_login::UserId;
 use diesel::prelude::*;
 use utoipa::ToSchema;
 use crate::auth::util::{id_is_admin_or_me, is_logged_in, parse_path_id};
-use crate::backend::{Backend, DBConnection};
+use crate::backend::{Backend};
 use diesel_async::RunQueryDsl;
 use crate::error::APIError;
 use crate::schema::{event_user, user_data};
 use crate::user_data::UserData;
 use crate::error::Result;
+use crate::events::user_action::{EventUserAction, log_user_action_from_event_user};
 use crate::schema::event_user::guests;
 
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde_repr::Serialize_repr, serde_repr::Deserialize_repr)]
 #[derive(diesel_derive_enum::DbEnum)]
 #[ExistingTypePath = "crate::schema::sql_types::Eventuserstate"]
 #[repr(u8)]
@@ -128,11 +129,13 @@ pub async fn register_to_event(
     } else {
         return Err(APIError::UserAlreadyRegistered);
     }
-
+    
     // TODO should use on conflict but somehow it doesn't work 
     // .on_conflict((event_user::event_id, event_user::user_id))
     // .do_nothing()
-    
+
+    log_user_action_from_event_user(event_user, EventUserAction::Register, conn).await?;
+
     Ok(())
 }
 
@@ -148,12 +151,15 @@ pub async fn unregister_from_event(
     let (user_id, mut conn) = id_is_admin_or_me(auth, user_id).await?;
     let event_id = parse_path_id(path)?;
     
-    diesel::delete(event_user::table)
+    let event_user = diesel::delete(event_user::table)
         .filter(event_user::event_id.eq(event_id))
         .filter(event_user::user_id.eq(user_id))
-        .execute(&mut conn.0)
+        .returning(EventUser::as_select())
+        .get_result(&mut conn.0)
         .await
         .map_err(APIError::internal)?;
+    
+    log_user_action_from_event_user(event_user, EventUserAction::Unregister, conn).await?;
     
     Ok(())
 }
@@ -170,13 +176,16 @@ pub async fn change_guests(
     let (user_id, mut conn) = id_is_admin_or_me(auth, user_and_guests.user_id).await?;
     let event_id = parse_path_id(path)?;
 
-    diesel::update(event_user::table)
+    let event_user = diesel::update(event_user::table)
         .filter(event_user::event_id.eq(event_id))
         .filter(event_user::user_id.eq(user_id))
         .set(guests.eq(user_and_guests.guests))
-        .execute(&mut conn.0)
+        .returning(EventUser::as_select())
+        .get_result(&mut conn.0)
         .await
         .map_err(APIError::internal)?;
+
+    log_user_action_from_event_user(event_user, EventUserAction::ChangeGuests, conn).await?;
 
     Ok(())
 }

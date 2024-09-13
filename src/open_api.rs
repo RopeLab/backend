@@ -10,6 +10,7 @@ use crate::permissions::*;
 use crate::permissions::routes::*;
 use crate::events::*;
 use crate::events::event_user::*;
+use crate::events::user_action::*;
 
 #[derive(OpenApi)]
 #[openapi(
@@ -33,7 +34,8 @@ use crate::events::event_user::*;
         get_event_users,
         register_to_event,
         unregister_from_event,
-        change_guests
+        change_guests,
+        get_user_actions
     ), 
     components(schemas(
         User,
@@ -46,6 +48,7 @@ use crate::events::event_user::*;
         EventUser,
         PublicEventUser,
         UserAndGuests,
+        UserAction,
     )))]
 struct ApiDoc;
 

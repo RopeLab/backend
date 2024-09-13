@@ -39,7 +39,7 @@ cargo run
 
 #### Create new migrations
 ```shell
-diesel migration generate NAME
+diesel migration generate add_user_action
 ```
 
 #### Apply migrations

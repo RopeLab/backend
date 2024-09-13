@@ -1,4 +1,5 @@
 pub mod event_user;
+pub mod user_action;
 
 use axum::{debug_handler, Json, Router};
 use axum::extract::Path;
