@@ -7,6 +7,7 @@ mod user_data;
 pub mod error;
 pub mod permissions;
 pub mod events;
+mod cors;
 
 use axum::{
     Router,
@@ -22,6 +23,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use tower_http::cors::{CorsLayer, any, Any};
 use crate::auth::routes::{add_admin_auth_routes, add_auth_routes};
 use crate::backend::Backend;
+use crate::cors::add_cors_layer;
 use crate::events::{add_admin_event_routes, add_event_routes};
 use crate::events::event_user::add_event_user_routes;
 use crate::events::user_action::add_user_action_routes;
@@ -29,6 +31,8 @@ use crate::open_api::add_swagger_route;
 use crate::permissions::{has_permission, UserPermission};
 use crate::permissions::routes::{add_admin_permission_routes, add_permission_routes};
 use crate::user_data::{add_admin_user_data_routes, add_user_data_routes};
+
+
 
 #[tokio::main]
 async fn main() {
@@ -47,11 +51,7 @@ async fn main() {
     let backend = Backend::new().await.unwrap();
     let auth_layer = AuthManagerLayerBuilder::new(backend.clone(), session_layer).build();
 
-    let cors = CorsLayer::new()
-        .allow_methods(vec![Method::GET, Method::POST])
-        .allow_origin("http://localhost:3000".parse::<HeaderValue>().unwrap())
-        .allow_credentials(true)
-        .allow_headers([ACCESS_CONTROL_ALLOW_ORIGIN, CONTENT_TYPE, AUTHORIZATION, ACCEPT]);
+    
     
     let mut router = Router::<Backend>::new();
     
@@ -71,7 +71,7 @@ async fn main() {
     
     router = router.route("/", get(|| async { "This is the Rope Lab Website Backend" }));
     router = router.layer(auth_layer);
-    router = router.layer(cors);
+    router = add_cors_layer(router);
 
     let app = router.with_state(backend);
     
