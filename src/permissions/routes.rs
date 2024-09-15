@@ -2,12 +2,12 @@ use axum::{debug_handler, Json, Router};
 use axum::extract::Path;
 use axum::routing::{get, post};
 use diesel_async::RunQueryDsl;
-use crate::auth::AuthSession;
+use crate::auth::{AuthSession, ID};
 use crate::backend::{Backend, DBConnection};
 use crate::error::APIError;
 use crate::permissions::{get_permissions_iter, has_permission, NewPermission, UserPermission};
 use crate::schema::permission;
-use crate::auth::util::path_id_is_admin_or_me;
+use crate::auth::util::auth_and_path_to_id_is_me_or_i_am_admin;
 
 #[utoipa::path(
     post,
@@ -38,11 +38,11 @@ pub async fn post_permission(
 #[debug_handler]
 pub async fn get_permission(
     auth_session: AuthSession,
-    path: Path<String>,
+    Path(u_id): Path<ID>,
 ) -> crate::error::APIResult<Json<Vec<UserPermission>>> {
-    let (id, mut conn) = path_id_is_admin_or_me(auth_session, path).await?;
+    let mut conn = auth_and_path_to_id_is_me_or_i_am_admin(auth_session, u_id).await?;
 
-    let permissions = get_permissions_iter(&mut conn, id).await?.collect();
+    let permissions = get_permissions_iter(&mut conn, u_id).await?.collect();
     Ok(Json(permissions))
 }
 

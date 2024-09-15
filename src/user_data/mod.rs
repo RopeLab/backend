@@ -6,18 +6,18 @@ use axum_login::UserId;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use utoipa::ToSchema;
-use crate::auth::{AuthSession};
+use crate::auth::{AuthSession, ID};
 use crate::backend::{Backend, DBConnection};
 use crate::error::APIError;
 use crate::error::APIResult;
 use crate::schema::user_data::user_id;
 use crate::schema::user_data;
-use crate::auth::util::{id_is_admin_or_me, path_id_is_admin_or_me};
+use crate::auth::util::{auth_and_path_to_id_is_me_or_i_am_admin, auth_to_id_is_me_or_i_am_admin};
 
 #[derive(serde::Deserialize, Insertable, AsChangeset, ToSchema, Debug, serde::Serialize, Queryable, Selectable, PartialEq)]
 #[diesel(table_name = user_data)]
 pub struct UserData {
-    pub user_id: i32,
+    pub user_id: ID,
     pub name: String,
     pub fetlife_name: String,
     pub experience_text: String,
@@ -40,7 +40,7 @@ pub async fn post_user_data(
     auth_session: AuthSession,
     Json(new_user_data): Json<UserData>
 ) -> APIResult<()> {
-    let (_, mut conn) = id_is_admin_or_me(auth_session, new_user_data.user_id).await?;
+    let mut conn = auth_to_id_is_me_or_i_am_admin(auth_session, new_user_data.user_id).await?;
 
     diesel::insert_into(user_data::table)
         .values(&new_user_data)
@@ -61,10 +61,10 @@ pub async fn post_user_data(
 #[debug_handler]
 pub async fn get_user_data(
     auth_session: AuthSession,
-    path: Path<String>,
+    Path(u_id): Path<ID>,
 ) -> APIResult<Json<UserData>> {
-    let (id, mut conn) = path_id_is_admin_or_me(auth_session, path).await?;
-    let user_data = get_user_data_by_id(&mut conn, id).await?;
+    let mut conn = auth_and_path_to_id_is_me_or_i_am_admin(auth_session, u_id).await?;
+    let user_data = get_user_data_by_id(&mut conn, u_id).await?;
     Ok(Json(user_data))
 }
 

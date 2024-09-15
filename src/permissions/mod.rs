@@ -10,6 +10,7 @@ use axum_login::{AuthzBackend, UserId};
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use utoipa::{ToSchema};
+use crate::auth::ID;
 use crate::backend::{Backend, DBConnection};
 use crate::error::APIError;
 use crate::schema::{permission};
@@ -28,15 +29,15 @@ pub enum UserPermission {
 #[derive(serde::Serialize, Queryable, Selectable, ToSchema, Debug)]
 #[diesel(table_name = permission)]
 pub struct Permission {
-    pub id: i32,
-    pub user_id: i32,
+    pub id: ID,
+    pub user_id: ID,
     pub user_permission: UserPermission,
 }
 
 #[derive(serde::Deserialize, Insertable, AsChangeset, ToSchema, Debug)]
 #[diesel(table_name = permission)]
 pub struct NewPermission {
-    pub user_id: i32,
+    pub user_id: ID,
     pub user_permission: UserPermission,
 }
 

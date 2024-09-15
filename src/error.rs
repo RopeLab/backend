@@ -37,6 +37,10 @@ pub enum APIError {
     #[status_code(NOT_ACCEPTABLE)]
     #[message("The User is already registered to the event")]
     UserAlreadyRegistered,
+
+    #[status_code(FORBIDDEN)]
+    #[message("User is not in Event")]
+    UserNotInEvent,
 }
 
 

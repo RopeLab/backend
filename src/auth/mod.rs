@@ -8,15 +8,15 @@ use diesel::{ExpressionMethods, Insertable, Queryable, QueryDsl, Selectable, Sel
 use diesel_async::RunQueryDsl;
 use utoipa::ToSchema;
 use crate::backend::{Backend, DBConnection};
-use crate::error::APIError;
+use crate::error::{APIError, APIResult};
 use crate::schema::users;
-use crate::error::APIResult;
 
 pub type AuthSession = axum_login::AuthSession<Backend>;
+pub type ID = i32;
 
 #[derive(serde::Serialize, Selectable, Queryable, ToSchema, Clone, Debug)]
 pub struct User {
-    pub id: i32,
+    pub id: ID,
     pub email: String,
     pub pw_hash: String,
 }
@@ -36,7 +36,7 @@ pub struct Credentials {
 }
 
 impl AuthUser for User {
-    type Id = i32;
+    type Id = ID;
 
     fn id(&self) -> Self::Id {
         self.id

@@ -8,8 +8,8 @@ use axum_login::{AuthnBackend, UserId};
 use diesel::{Insertable, Queryable, QueryDsl, SelectableHelper};
 use diesel_async::RunQueryDsl;
 use diesel::ExpressionMethods;
-use crate::auth::{AuthSession, Credentials, get_user_with_email, NewUser, User};
-use crate::auth::util::{get_logged_in_id, path_id_is_admin_or_me};
+use crate::auth::{AuthSession, Credentials, get_user_with_email, ID, NewUser, User};
+use crate::auth::util::{auth_to_logged_in_id, auth_and_path_to_id_is_me_or_i_am_admin};
 use crate::backend::{Backend, DBConnection};
 use crate::error::{APIError, APIResult};
 use crate::schema::users;
@@ -93,7 +93,7 @@ async fn logout(mut auth_session: AuthSession) -> APIResult<()> {
 pub async fn get_id(
     auth_session: AuthSession,
 ) -> APIResult<Json<UserId<Backend>>> {
-    let user_id = get_logged_in_id(auth_session).await?;
+    let user_id = auth_to_logged_in_id(auth_session).await?;
     Ok(Json(user_id))
 }
 
@@ -104,9 +104,9 @@ pub async fn get_id(
 #[debug_handler]
 pub async fn get_email(
     auth_session: AuthSession,
-    path: Path<String>,
+    Path(u_id): Path<ID>,
 ) -> crate::error::APIResult<Json<String>> {
-    let (u_id, mut conn) = path_id_is_admin_or_me(auth_session, path).await?;
+    let mut conn = auth_and_path_to_id_is_me_or_i_am_admin(auth_session, u_id).await?;
     let mail = users::table
         .filter(id.eq(u_id))
         .select(email)

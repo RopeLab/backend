@@ -1,12 +1,10 @@
-use axum::extract::Path;
-use axum_login::UserId;
-use crate::auth::AuthSession;
-use crate::backend::{Backend, DBConnection};
+use crate::auth::{AuthSession, ID};
+use crate::backend::{DBConnection};
 use crate::error::APIError;
 use crate::permissions::is_admin;
 use crate::error::APIResult;
 
-pub async fn is_logged_in(
+pub async fn auth_to_conn_expect_logged_in(
     auth_session: AuthSession,
 ) -> APIResult<DBConnection> {
     if auth_session.user.is_none() {
@@ -17,9 +15,22 @@ pub async fn is_logged_in(
     Ok(conn)
 }
 
-pub async fn get_logged_in_id(
+pub async fn auth_to_conn_expect_logged_in_check_is_admin(
     auth_session: AuthSession,
-) -> APIResult<UserId<Backend>> {
+) -> APIResult<(bool, DBConnection)> {
+    if auth_session.user.is_none() {
+        return Err(APIError::UNAUTHORIZED);
+    }
+    let user = auth_session.user.unwrap();
+
+    let mut conn = auth_session.backend.get_connection().await?;
+    let admin = is_admin(&mut conn, user.id).await;
+    Ok((admin, conn))
+}
+
+pub async fn auth_to_logged_in_id(
+    auth_session: AuthSession,
+) -> APIResult<ID> {
     if auth_session.user.is_none() {
         return Err(APIError::UNAUTHORIZED);
     }
@@ -27,10 +38,24 @@ pub async fn get_logged_in_id(
     Ok(auth_session.user.unwrap().id)
 }
 
-pub async fn id_is_admin_or_me(
+pub async fn auth_to_is_admin_and_conn(
     auth_session: AuthSession,
-    id: UserId<Backend>,
-) -> APIResult<(UserId<Backend>, DBConnection)> {
+) -> APIResult<(bool, DBConnection)> {
+    let mut conn = auth_session.backend.get_connection().await?;
+    if auth_session.user.is_none() {
+        
+        return Ok((false, conn));
+    }
+    let user = auth_session.user.unwrap();
+    
+    let admin = is_admin(&mut conn, user.id).await;
+    Ok((admin, conn))
+}
+
+pub async fn auth_to_id_is_me_or_i_am_admin(
+    auth_session: AuthSession,
+    id: ID,
+) -> APIResult<DBConnection> {
     if auth_session.user.is_none() {
         return Err(APIError::UNAUTHORIZED);
     }
@@ -41,34 +66,23 @@ pub async fn id_is_admin_or_me(
         return Err(APIError::UNAUTHORIZED);
     }
 
-    Ok((id, conn))
+    Ok(conn)
 }
 
 
-pub async fn path_id_is_admin_or_me(
+pub async fn auth_and_path_to_id_is_me_or_i_am_admin(
     auth_session: AuthSession,
-    path: Path<String>,
-) -> APIResult<(UserId<Backend>, DBConnection)> {
+    user_id: ID,
+) -> APIResult<DBConnection> {
     if auth_session.user.is_none() {
         return Err(APIError::UNAUTHORIZED);
     }
     let user = auth_session.user.unwrap();
-
-    let id = parse_path_id(path)?;
+    
     let mut conn = auth_session.backend.get_connection().await?;
-    if user.id != id && !is_admin(&mut conn, user.id).await {
+    if user.id != user_id && !is_admin(&mut conn, user.id).await {
         return Err(APIError::UNAUTHORIZED);
     }
     
-    Ok((id, conn))
+    Ok(conn)
 }
-
-pub fn parse_path_id(Path(id): Path<String>) -> APIResult<i32> {
-    let id = id.parse::<i32>();
-    if id.is_err() {
-        return Err(APIError::InvalidPath);
-    }
-    
-    Ok(id.unwrap())
-}
-

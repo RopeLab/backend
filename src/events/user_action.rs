@@ -5,8 +5,8 @@ use chrono::{Local, NaiveDateTime};
 use diesel::{AsChangeset, ExpressionMethods, Insertable, Queryable, QueryDsl, Selectable, SelectableHelper};
 use diesel_async::RunQueryDsl;
 use utoipa::ToSchema;
-use crate::auth::AuthSession;
-use crate::auth::util::{id_is_admin_or_me, parse_path_id};
+use crate::auth::{AuthSession, ID};
+use crate::auth::util::{auth_to_id_is_me_or_i_am_admin};
 use crate::backend::{Backend, DBConnection};
 use crate::error::APIError;
 use crate::schema::{user_action};
@@ -28,8 +28,8 @@ pub enum EventUserAction {
 #[derive(serde::Serialize, serde::Deserialize, Insertable, AsChangeset, Queryable, Selectable, ToSchema, Debug, PartialEq)]
 #[diesel(table_name = user_action)]
 pub struct UserAction {
-    pub user_id: i32,
-    pub event_id: i32,
+    pub user_id: ID,
+    pub event_id: ID,
     pub date: NaiveDateTime,
     pub action: EventUserAction,
     pub in_waiting: bool,
@@ -81,13 +81,12 @@ pub async fn log_user_action(
 )]
 pub async fn get_user_actions(
     auth: AuthSession,
-    path: Path<String>,
+    Path(u_id): Path<ID>,
 ) -> APIResult<Json<Vec<UserAction>>> {
-    let user_id = parse_path_id(path)?;
-    let (_, mut conn) = id_is_admin_or_me(auth, user_id).await?;
+    let mut conn = auth_to_id_is_me_or_i_am_admin(auth, u_id).await?;
 
     let actions = user_action::table
-        .filter(user_action::user_id.eq(user_id))
+        .filter(user_action::user_id.eq(u_id))
         .select(UserAction::as_select())
         .get_results(&mut conn.0)
         .await

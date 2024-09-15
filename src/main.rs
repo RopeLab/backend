@@ -24,8 +24,9 @@ use tower_http::cors::{CorsLayer, any, Any};
 use crate::auth::routes::{add_admin_auth_routes, add_auth_routes};
 use crate::backend::Backend;
 use crate::cors::add_cors_layer;
-use crate::events::{add_admin_event_routes, add_event_routes};
+use crate::events::{add_admin_event_routes};
 use crate::events::event_user::add_event_user_routes;
+use crate::events::public::add_public_event_routes;
 use crate::events::user_action::add_user_action_routes;
 use crate::open_api::add_swagger_route;
 use crate::permissions::{has_permission, UserPermission};
@@ -65,8 +66,8 @@ async fn main() {
     router = add_auth_routes(router);
     router = add_user_data_routes(router);
     router = add_permission_routes(router);
-    router = add_event_routes(router);
     router = add_event_user_routes(router);
+    router = add_public_event_routes(router);
     router = add_user_action_routes(router);
     
     router = router.route("/", get(|| async { "This is the Rope Lab Website Backend" }));

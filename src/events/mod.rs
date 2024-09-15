@@ -1,5 +1,6 @@
 pub mod event_user;
 pub mod user_action;
+pub mod public;
 
 use axum::{debug_handler, Json, Router};
 use axum::extract::Path;
@@ -8,7 +9,7 @@ use chrono::NaiveDateTime;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use utoipa::ToSchema;
-use crate::auth::util::parse_path_id;
+use crate::auth::ID;
 use crate::backend::{Backend, DBConnection};
 use crate::error::APIError;
 use crate::schema::event;
@@ -17,7 +18,7 @@ use crate::error::APIResult;
 #[derive(serde::Serialize, serde::Deserialize, Queryable, Insertable, Selectable, AsChangeset, ToSchema, Debug, PartialEq)]
 #[diesel(table_name = event)]
 pub struct Event {
-    pub id: i32,
+    pub id: ID,
     pub visible_date: NaiveDateTime,
     pub register_deadline: NaiveDateTime,
     pub date: NaiveDateTime,
@@ -42,6 +43,7 @@ pub struct NewEvent {
 }
 
 
+
 #[utoipa::path(
     post,
     path = "/event"
@@ -64,11 +66,10 @@ pub async fn post_event(
 )]
 pub async fn update_event(
     mut conn: DBConnection,
-    path: Path<String>,
+    Path(e_id): Path<ID>,
     Json(event): Json<Event>
 ) -> APIResult<()> {
-    let event_id = parse_path_id(path)?;
-    if event_id != event.id {
+    if e_id != event.id {
         return Err(APIError::EventIdsDontMatch)
     }
     
@@ -87,11 +88,10 @@ pub async fn update_event(
 )]
 pub async fn get_event(
     mut conn: DBConnection,
-    path: Path<String>,
+    Path(e_id): Path<ID>,
 ) -> APIResult<Json<Event>> {
-    let event_id = parse_path_id(path)?;
     let event = event::table
-        .filter(event::id.eq(event_id))
+        .filter(event::id.eq(e_id))
         .select(Event::as_select())
         .get_result(&mut conn.0)
         .await
@@ -105,11 +105,10 @@ pub async fn get_event(
 )]
 pub async fn delete_event(
     mut conn: DBConnection,
-    path: Path<String>,
+    Path(e_id): Path<ID>,
 ) -> APIResult<()> {
-    let event_id = parse_path_id(path)?;
     diesel::delete(event::table)
-        .filter(event::id.eq(event_id))
+        .filter(event::id.eq(e_id))
         .execute(&mut conn.0)
         .await
         .map_err(APIError::internal)?;
@@ -132,11 +131,7 @@ pub async fn get_event_all(mut conn: DBConnection) -> APIResult<Json<Vec<Event>>
 pub fn add_admin_event_routes(router: Router<Backend>) -> Router<Backend> {
    router.route("/event", post(post_event))
        .route("/event/:id", post(update_event))
-        .route("/event/:id/delete", post(delete_event))
-}
-
-pub fn add_event_routes(router: Router<Backend>) -> Router<Backend> {
-    router.route("/event/:id", get(get_event))
-        .route("/event/all", get(get_event_all))
-       
+       .route("/event/:id", get(get_event))
+       .route("/event/all", get(get_event_all))
+       .route("/event/:id/delete", post(delete_event))
 }
