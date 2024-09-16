@@ -11,7 +11,7 @@ use crate::backend::{Backend, DBConnection};
 use crate::error::APIError;
 use crate::schema::{user_action};
 use crate::error::APIResult;
-use crate::events::event_user::{EventUser, EventUserState};
+use crate::events::users::{EventUser, EventUserState};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde_repr::Serialize_repr, serde_repr::Deserialize_repr)]
 #[derive(diesel_derive_enum::DbEnum)]

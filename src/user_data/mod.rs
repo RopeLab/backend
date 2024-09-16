@@ -28,6 +28,7 @@ pub struct UserData {
     pub show_name: bool,
     pub show_role: bool,
     pub show_open: bool,
+    pub show_fetlife: bool,
     pub new: bool,
 }
 

@@ -1,17 +1,17 @@
 use axum::extract::Path;
 use axum::{Json, Router};
-use axum::routing::{get, post};
+use axum::routing::{get};
 use chrono::NaiveDateTime;
-use diesel::{ExpressionMethods, JoinOnDsl, QueryDsl};
-use diesel::dsl::{count_star, sum};
+use diesel::{ExpressionMethods, QueryDsl};
 use diesel_async::RunQueryDsl;
 use utoipa::ToSchema;
 use crate::auth::{AuthSession, ID};
 use crate::auth::util::{auth_to_conn_expect_logged_in_check_is_admin, auth_to_is_admin_and_conn};
-use crate::backend::{Backend, DBConnection};
+use crate::backend::{Backend};
 use crate::error::{APIError, APIResult};
-use crate::events::event_user::{change_guests, EventUserState, get_event_users, register_to_event, unregister_from_event};
-use crate::schema::{event, event_user, user_data};
+use crate::events::users::{EventUserState};
+use crate::events::util::{get_count_of_event_users_open_with_state, get_count_of_event_users_with_state, get_slots_and_description_of_event_with_admin_check};
+use crate::schema::{event};
 
 #[derive(serde::Serialize, serde::Deserialize, ToSchema, Debug, PartialEq)]
 pub struct EventDate {
@@ -74,38 +74,7 @@ pub async fn get_event_dates(
     Ok(Json(event_dates))
 }
 
-async fn get_count_of_event_users_with_state(id: ID, state: EventUserState, conn: &mut DBConnection) -> APIResult<i32> {
-    let (register_count, guest_count) = event_user::table
-        .filter(event_user::event_id.eq(id))
-        .filter(event_user::state.eq(state))
-        .select((count_star(), sum(event_user::guests)))
-        .get_result::<(i64, Option<i64>)>(&mut conn.0)
-        .await
-        .map_err(APIError::internal)?;
 
-    Ok((register_count + guest_count.unwrap_or_default()) as i32)
-}
-
-async fn get_slots_and_description_of_event(e_id: ID, admin: bool, conn: &mut DBConnection) -> APIResult<(i32, String)> {
-    let (slots, description) = if admin {
-        event::table
-            .filter(event::id.eq(e_id))
-            .select((event::slots, event::description))
-            .get_result(&mut conn.0)
-            .await
-            .map_err(APIError::internal)?
-    } else {
-        event::table
-            .filter(event::id.eq(e_id))
-            .filter(event::visible.eq(true))
-            .select((event::slots, event::description))
-            .get_result(&mut conn.0)
-            .await
-            .map_err(APIError::internal)?
-    };
-
-    Ok((slots, description))
-}
 
 #[utoipa::path(
     get,
@@ -117,7 +86,7 @@ pub async fn get_event_public_data(
 ) -> APIResult<Json<PublicEventData>> {
     let (admin, mut conn) = auth_to_is_admin_and_conn(auth).await?;
 
-    let (slots, description) = get_slots_and_description_of_event(e_id, admin, &mut conn).await?;
+    let (slots, description) = get_slots_and_description_of_event_with_admin_check(e_id, admin, &mut conn).await?;
     let register_count = get_count_of_event_users_with_state(e_id, EventUserState::Registered, &mut conn).await?;
     let wait_count = get_count_of_event_users_with_state(e_id, EventUserState::Waiting, &mut conn).await?;
 
@@ -129,22 +98,6 @@ pub async fn get_event_public_data(
     }))
 }
 
-
-async fn get_count_of_event_users_open_with_state(id: ID, state: EventUserState, conn: &mut DBConnection) -> APIResult<i32> {
-    let open_count = event_user::table
-        .filter(event_user::event_id.eq(id))
-        .filter(event_user::state.eq(state))
-        .inner_join(user_data::table.on(event_user::user_id.eq(user_data::user_id)))
-        .filter(user_data::open.eq(true))
-        .count()
-        .get_result::<i64>(&mut conn.0)
-        .await
-        .map_err(APIError::internal)?;
-
-    Ok(open_count as i32)
-}
-
-
 #[utoipa::path(
     get,
     path = "/event/{id}/logged_in_data"
@@ -155,7 +108,7 @@ pub async fn get_event_logged_in_data(
 ) -> APIResult<Json<LoggedInEventData>> {
     let (admin, mut conn) = auth_to_conn_expect_logged_in_check_is_admin(auth).await?;
 
-    let (slots, description) = get_slots_and_description_of_event(e_id, admin, &mut conn).await?;
+    let (slots, description) = get_slots_and_description_of_event_with_admin_check(e_id, admin, &mut conn).await?;
     let register_count = get_count_of_event_users_with_state(e_id, EventUserState::Registered, &mut conn).await?;
     let wait_count = get_count_of_event_users_with_state(e_id, EventUserState::Waiting, &mut conn).await?;
     let open_count = get_count_of_event_users_open_with_state(e_id, EventUserState::Registered, &mut conn).await?;

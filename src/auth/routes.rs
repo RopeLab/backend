@@ -12,6 +12,7 @@ use crate::auth::{AuthSession, Credentials, get_user_with_email, ID, NewUser, Us
 use crate::auth::util::{auth_to_logged_in_id, auth_and_path_to_id_is_me_or_i_am_admin};
 use crate::backend::{Backend, DBConnection};
 use crate::error::{APIError, APIResult};
+use crate::permissions::is_admin;
 use crate::schema::users;
 use crate::schema::users::{email, id};
 
@@ -118,6 +119,21 @@ pub async fn get_email(
 
 #[utoipa::path(
     get,
+    path = "/user/{id}/admin"
+)]
+#[debug_handler]
+pub async fn get_admin(
+    auth_session: AuthSession,
+    Path(u_id): Path<ID>,
+) -> APIResult<Json<bool>> {
+    let mut conn = auth_and_path_to_id_is_me_or_i_am_admin(auth_session, u_id).await?;
+    let admin = is_admin(&mut conn, u_id).await;
+    
+    Ok(Json(admin))
+}
+
+#[utoipa::path(
+    get,
     path = "/user/all"
 )]
 async fn get_all_users(DBConnection(mut conn): DBConnection) -> crate::error::APIResult<Json<Vec<User>>> {
@@ -135,6 +151,7 @@ pub fn add_auth_routes(router: Router<Backend>) -> Router<Backend> {
         .route("/logout", post(logout))
         .route("/user/id", get(get_id))
         .route("/user/:id/email", get(get_email))
+        .route("/user/:id/admin", get(get_admin))
 }
 
 pub fn add_admin_auth_routes(router: Router<Backend>) -> Router<Backend> {

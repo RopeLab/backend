@@ -1,8 +1,10 @@
-pub mod event_user;
+pub mod users;
 pub mod user_action;
 pub mod public;
+pub mod slots;
+mod util;
 
-use axum::{debug_handler, Json, Router};
+use axum::{Json, Router};
 use axum::extract::Path;
 use axum::routing::{get, post};
 use chrono::NaiveDateTime;
@@ -24,6 +26,7 @@ pub struct Event {
     pub date: NaiveDateTime,
     pub archive_date: NaiveDateTime,
     pub slots: i32,
+    pub new_slots: i32,
     pub visible: bool,
     pub archive: bool,
     pub description: String,
@@ -37,12 +40,11 @@ pub struct NewEvent {
     pub date: NaiveDateTime,
     pub archive_date: NaiveDateTime,
     pub slots: i32,
+    pub new_slots: i32,
     pub visible: bool,
     pub archive: bool,
     pub description: String,
 }
-
-
 
 #[utoipa::path(
     post,

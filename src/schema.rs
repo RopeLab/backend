@@ -25,6 +25,7 @@ diesel::table! {
         visible_date -> Timestamp,
         archive_date -> Timestamp,
         description -> Text,
+        new_slots -> Int4,
     }
 }
 
@@ -85,6 +86,7 @@ diesel::table! {
         show_role -> Bool,
         show_open -> Bool,
         new -> Bool,
+        show_fetlife -> Bool,
     }
 }
 

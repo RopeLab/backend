@@ -1,9 +1,9 @@
 pub mod routes;
 pub mod util;
 
-use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
+use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_trait::async_trait;
-use axum_login::{AuthnBackend, AuthUser, AuthzBackend, UserId};
+use axum_login::{AuthnBackend, AuthUser, UserId};
 use diesel::{ExpressionMethods, Insertable, Queryable, QueryDsl, Selectable, SelectableHelper};
 use diesel_async::RunQueryDsl;
 use utoipa::ToSchema;

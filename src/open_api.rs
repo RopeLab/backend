@@ -1,4 +1,4 @@
-use crate::events::event_user::EventUser;
+use crate::events::users::EventUser;
 use axum::{Json, Router};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
@@ -9,7 +9,7 @@ use crate::user_data::*;
 use crate::permissions::*;
 use crate::permissions::routes::*;
 use crate::events::*;
-use crate::events::event_user::*;
+use crate::events::users::*;
 use crate::events::user_action::*;
 use crate::events::public::*;
 
@@ -22,6 +22,7 @@ use crate::events::public::*;
         logout,
         get_id,
         get_email,
+        get_admin,
         get_all_users,
         get_user_data,
         post_user_data,
