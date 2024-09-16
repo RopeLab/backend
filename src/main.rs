@@ -16,11 +16,11 @@ use axum::{
 use std::net::SocketAddr;
 use axum_login::{AuthManagerLayerBuilder, permission_required};
 use axum_login::tower_sessions::{MemoryStore, SessionManagerLayer};
-use http::{Method};
-use http::header::{ACCEPT, ACCEPT_ENCODING, ACCEPT_LANGUAGE, ACCESS_CONTROL_ALLOW_ORIGIN, ACCESS_CONTROL_REQUEST_HEADERS, ACCESS_CONTROL_REQUEST_METHOD, AUTHORIZATION, CONNECTION, CONTENT_TYPE, HOST, ORIGIN, REFERER, USER_AGENT, VARY};
-use tracing::{error, info};
+
+
+
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use tower_http::cors::{CorsLayer, any, Any};
+
 use crate::auth::routes::{add_admin_auth_routes, add_auth_routes};
 use crate::backend::Backend;
 use crate::cors::add_cors_layer;
@@ -29,7 +29,7 @@ use crate::events::users::add_event_user_routes;
 use crate::events::public::add_public_event_routes;
 use crate::events::user_action::add_user_action_routes;
 use crate::open_api::add_swagger_route;
-use crate::permissions::{has_permission, UserPermission};
+use crate::permissions::{UserPermission};
 use crate::permissions::routes::{add_admin_permission_routes, add_permission_routes};
 use crate::user_data::{add_admin_user_data_routes, add_user_data_routes};
 
