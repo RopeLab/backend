@@ -55,3 +55,9 @@ diesel migration redo
 ## Notes
 ### Debugging Handler Compile Problems 
 add to function `#[debug_handler]`
+
+### Remove unused imports and other stuff 
+You need to commit before running fix
+```shell
+cargo fix
+```
