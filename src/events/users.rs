@@ -53,7 +53,7 @@ pub struct PublicEventUser {
     pub guests: i32,
 }
 
-fn GetPublicUser((eu, ud): (EventUser, UserData)) -> PublicEventUser {
+fn get_public_user((eu, ud): (EventUser, UserData)) -> PublicEventUser {
     PublicEventUser {
         user_id: ud.user_id,
         name: if ud.show_name { Some(ud.name) } else { None },
@@ -76,7 +76,7 @@ pub async fn get_event_user(
 ) -> APIResult<Json<PublicEventUser>> {
     let mut conn = auth_to_conn_expect_logged_in(auth).await?;
 
-    let result = GetPublicUser(event_user::table
+    let result = get_public_user(event_user::table
         .filter(event_user::event_id.eq(e_id))
         .filter(event_user::user_id.eq(u_id))
         .inner_join(user_data::table.on(event_user::user_id.eq(user_data::user_id)))
@@ -106,7 +106,7 @@ pub async fn get_event_users(
         .await
         .map_err(APIError::internal)?
         .into_iter()
-        .map(GetPublicUser)
+        .map(get_public_user)
         .collect();
 
     result.sort_by(|a, b| {

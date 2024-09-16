@@ -4,8 +4,8 @@ use argon2::password_hash::SaltString;
 use axum::{debug_handler, Json, Router};
 use axum::extract::Path;
 use axum::routing::{get, post};
-use axum_login::{AuthnBackend, UserId};
-use diesel::{Insertable, Queryable, QueryDsl, SelectableHelper};
+use axum_login::UserId;
+use diesel::{QueryDsl, SelectableHelper};
 use diesel_async::RunQueryDsl;
 use diesel::ExpressionMethods;
 use crate::auth::{AuthSession, Credentials, get_user_with_email, ID, NewUser, User};
@@ -128,7 +128,7 @@ pub async fn get_admin(
 ) -> APIResult<Json<bool>> {
     let mut conn = auth_and_path_to_id_is_me_or_i_am_admin(auth_session, u_id).await?;
     let admin = is_admin(&mut conn, u_id).await;
-    
+
     Ok(Json(admin))
 }
 
