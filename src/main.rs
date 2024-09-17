@@ -7,7 +7,8 @@ mod user_data;
 pub mod error;
 pub mod permissions;
 pub mod events;
-mod cors;
+pub mod cors;
+pub mod firebase;
 
 use axum::{
     Router,

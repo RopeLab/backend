@@ -49,7 +49,6 @@ use crate::events::public::*;
         Credentials,
         UserData,
         Permission,
-        NewPermission,
         Event,
         NewEvent,
         EventUser,

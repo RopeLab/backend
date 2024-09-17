@@ -99,8 +99,6 @@ diesel::table! {
     }
 }
 
-diesel::joinable!(event_user -> event (event_id));
-diesel::joinable!(event_user -> users (user_id));
 diesel::joinable!(permission -> users (user_id));
 diesel::joinable!(user_action -> event (event_id));
 diesel::joinable!(user_action -> users (user_id));

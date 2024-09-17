@@ -207,8 +207,10 @@ pub async fn unregister_from_event(
         .await
         .map_err(APIError::internal)?;
 
-    after_unregister(e_id, event_user, &mut conn).await?;
+    after_unregister(event_user, &mut conn).await?;
     log_user_action_from_event_user(event_user, EventUserAction::Unregister, conn).await?;
+    
+    
     
     Ok(())
 }

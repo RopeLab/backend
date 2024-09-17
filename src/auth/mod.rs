@@ -31,8 +31,8 @@ pub struct NewUser {
 
 #[derive(serde::Deserialize, Clone, ToSchema)]
 pub struct Credentials {
-    email: String,
-    password: String,
+    pub email: String,
+    pub password: String,
 }
 
 impl AuthUser for User {

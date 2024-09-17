@@ -16,6 +16,8 @@ pkgs.mkShell rec {
     clang
     diesel-cli
     dbeaver-bin
+    openssl
+    pkg-config
   ];
 }
 

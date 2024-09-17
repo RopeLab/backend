@@ -11,8 +11,8 @@ CREATE TABLE "event"(
 
 CREATE TABLE "event_user"(
     "id" SERIAL PRIMARY KEY NOT NULL,
-    "user_id" INT NOT NULL REFERENCES users(id) UNIQUE,
-    "event_id" INT NOT NULL REFERENCES event(id) UNIQUE,
+    "user_id" INT NOT NULL REFERENCES users(id),
+    "event_id" INT NOT NULL REFERENCES event(id),
     "slot" INT NOT NULL,
     "state" EventUserState NOT NULL,
     "guests" INT NOT NULL,

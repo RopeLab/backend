@@ -120,25 +120,25 @@ async fn move_up_waiting_new(e_id: ID, new_slot: i32, conn: &mut DBConnection) -
     Ok(())
 }
 
-pub async fn after_unregister(e_id: ID, event_user: EventUser, conn: &mut DBConnection) -> APIResult<()> {
+pub async fn after_unregister(event_user: EventUser, conn: &mut DBConnection) -> APIResult<()> {
     if event_user.state == EventUserState::Registered {
-        move_up_register(e_id, conn).await?;
+        move_up_register(event_user.event_id, conn).await?;
         return Ok(())
     }
 
     if event_user.state == EventUserState::Registered {
-        move_up_new(e_id, conn).await?;
+        move_up_new(event_user.event_id, conn).await?;
         return Ok(())
     }
 
     if event_user.state == EventUserState::Waiting {
-        move_up_waiting(e_id, event_user.slot, conn).await?;
+        move_up_waiting(event_user.event_id, event_user.slot, conn).await?;
         return Ok(())
     }
 
     if event_user.state == EventUserState::WaitingNew {
-        move_up_waiting(e_id, event_user.slot, conn).await?;
-        move_up_waiting_new(e_id, event_user.new_slot, conn).await?;
+        move_up_waiting(event_user.event_id, event_user.slot, conn).await?;
+        move_up_waiting_new(event_user.event_id, event_user.new_slot, conn).await?;
         return Ok(())
     }
     

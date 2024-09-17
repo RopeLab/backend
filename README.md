@@ -39,7 +39,7 @@ cargo run
 
 #### Create new migrations
 ```shell
-diesel migration generate add_user_new_slot
+diesel migration generate remove_unique_in_event_user
 ```
 
 #### Apply migrations

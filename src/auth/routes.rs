@@ -12,8 +12,12 @@ use crate::auth::{AuthSession, Credentials, get_user_with_email, ID, NewUser, Us
 use crate::auth::util::{auth_to_logged_in_id, auth_and_path_to_id_is_me_or_i_am_admin};
 use crate::backend::{Backend, DBConnection};
 use crate::error::{APIError, APIResult};
-use crate::permissions::is_admin;
-use crate::schema::users;
+use crate::events::slots::after_unregister;
+use crate::events::users::{EventUser};
+use crate::firebase::{firebase_get_user_data, firebase_is_user_new, firebase_is_user_verified, firebase_login_user, insert_user_data_from_firebase};
+use crate::permissions::{is_admin, UserPermission};
+use crate::permissions::routes::post_permission;
+use crate::schema::{event_user, permission, user_action, user_data, users};
 use crate::schema::users::{email, id};
 
 #[utoipa::path(
@@ -56,9 +60,36 @@ async fn login(
     mut auth_session: AuthSession,
     Json(credentials): Json<Credentials>,
 ) -> APIResult<Json<UserId<Backend>>> {
+    
     let user = match auth_session.authenticate(credentials.clone()).await {
         Ok(Some(user)) => user,
-        Ok(None) => return Err(APIError::InvalidCredentials),
+        Ok(None) => {
+            if let Ok(firebase_id) = firebase_login_user(credentials.clone()).await {
+                let firebase_user_data = firebase_get_user_data(&firebase_id).await?;
+                let firebase_user_new = firebase_is_user_new(&firebase_id).await?;
+                let firebase_verified = firebase_is_user_verified(&firebase_id).await?;
+
+                let conn = auth_session.backend.get_connection().await?;
+                sign_up(conn, Json(credentials.clone())).await?;
+                let user = auth_session.authenticate(credentials.clone()).await
+                    .map_err(APIError::internal)?;
+                if user.is_none() {
+                    return Err(APIError::Internal("Could not login user in firebase bridge".to_string()));
+                }
+                let user = user.unwrap();
+
+                let mut conn = auth_session.backend.get_connection().await?;
+                insert_user_data_from_firebase(user.id, firebase_user_data, firebase_user_new, &mut conn).await?;
+
+                if firebase_verified {
+                    post_permission(conn, Path(user.id), Json(UserPermission::Verified)).await?;
+                }
+
+                user
+            } else {
+                return Err(APIError::InvalidCredentials);
+            }
+        },
         Err(err) => return Err(APIError::internal(err)),
     };
 
@@ -145,6 +176,52 @@ async fn get_all_users(DBConnection(mut conn): DBConnection) -> crate::error::AP
     Ok(Json(res))
 }
 
+#[utoipa::path(
+    post,
+    path = "/user/{id}/remove"
+)]
+async fn remove_user(
+    mut conn: DBConnection,
+    Path(u_id): Path<ID>
+) -> APIResult<()> {
+    diesel::delete(user_action::table)
+        .filter(user_action::user_id.eq(u_id))
+        .execute(&mut conn.0)
+        .await
+        .map_err(APIError::internal)?;
+
+    let removed_event_users = diesel::delete(event_user::table)
+        .filter(event_user::user_id.eq(u_id))
+        .returning(EventUser::as_select())
+        .get_results::<EventUser>(&mut conn.0)
+        .await
+        .map_err(APIError::internal)?;
+
+    for removed_event_user in removed_event_users {
+        after_unregister(removed_event_user, &mut conn).await?
+    }
+
+    diesel::delete(permission::table)
+        .filter(permission::user_id.eq(u_id))
+        .execute(&mut conn.0)
+        .await
+        .map_err(APIError::internal)?;
+
+    diesel::delete(user_data::table)
+        .filter(user_data::user_id.eq(u_id))
+        .execute(&mut conn.0)
+        .await
+        .map_err(APIError::internal)?;
+
+    diesel::delete(users::table)
+        .filter(users::id.eq(u_id))
+        .execute(&mut conn.0)
+        .await
+        .map_err(APIError::internal)?;
+
+    Ok(())
+}
+
 pub fn add_auth_routes(router: Router<Backend>) -> Router<Backend> {
     router.route("/signup", post(sign_up))
         .route("/login", post(login))
@@ -156,4 +233,5 @@ pub fn add_auth_routes(router: Router<Backend>) -> Router<Backend> {
 
 pub fn add_admin_auth_routes(router: Router<Backend>) -> Router<Backend> {
     router.route("/user/all", get(get_all_users))
+        .route( "/user/:id/remove", post(remove_user))
 }

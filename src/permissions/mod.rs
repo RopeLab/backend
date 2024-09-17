@@ -22,17 +22,9 @@ pub enum UserPermission {
     Verified
 }
 
-#[derive(serde::Serialize, Queryable, Selectable, ToSchema, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Queryable, Selectable, Insertable, AsChangeset, ToSchema, Debug)]
 #[diesel(table_name = permission)]
 pub struct Permission {
-    pub id: ID,
-    pub user_id: ID,
-    pub user_permission: UserPermission,
-}
-
-#[derive(serde::Deserialize, Insertable, AsChangeset, ToSchema, Debug)]
-#[diesel(table_name = permission)]
-pub struct NewPermission {
     pub user_id: ID,
     pub user_permission: UserPermission,
 }
