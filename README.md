@@ -39,7 +39,7 @@ cargo run
 
 #### Create new migrations
 ```shell
-diesel migration generate add_show_fetlife
+diesel migration generate add_user_new_slot
 ```
 
 #### Apply migrations

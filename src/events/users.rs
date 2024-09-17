@@ -1,4 +1,3 @@
-
 use crate::auth::{AuthSession, ID};
 use axum::{Json, Router};
 use axum::extract::Path;
@@ -12,7 +11,7 @@ use crate::error::APIError;
 use crate::schema::{event_user, user_data};
 use crate::user_data::UserData;
 use crate::error::APIResult;
-use crate::events::slots::{get_user_slot};
+use crate::events::slots::{after_unregister, check_change_guests_ok, get_user_slot};
 use crate::events::user_action::{EventUserAction, log_user_action_from_event_user};
 use crate::events::util::is_user_in_event;
 use crate::schema::event_user::guests;
@@ -30,18 +29,19 @@ pub enum EventUserState {
     WaitingNew,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Insertable, AsChangeset, Queryable, Selectable, ToSchema, Debug, PartialEq)]
+#[derive(Copy, Clone, serde::Serialize, serde::Deserialize, Insertable, AsChangeset, Queryable, Selectable, ToSchema, Debug, PartialEq)]
 #[diesel(table_name = event_user)]
 pub struct EventUser {
     pub user_id: ID,
     pub event_id: ID,
     pub slot: i32,
+    pub new_slot: i32,
     pub state: EventUserState,
     pub guests: i32,
     pub attended: bool,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, ToSchema, Debug, PartialEq)]
+#[derive(Clone, serde::Serialize, serde::Deserialize, ToSchema, Debug, PartialEq)]
 pub struct PublicEventUser {
     pub user_id: ID,
     pub name: Option<String>,
@@ -49,8 +49,16 @@ pub struct PublicEventUser {
     pub role_factor: Option<f64>,
     pub open: Option<bool>,
     pub slot: i32,
+    pub new_slot: i32,
     pub state: EventUserState,
     pub guests: i32,
+}
+
+#[derive(Clone, serde::Serialize, serde::Deserialize, ToSchema, Debug, PartialEq)]
+pub struct PublicEventUserLists {
+    pub registered: Vec<PublicEventUser>,
+    pub new: Vec<PublicEventUser>,
+    pub waiting: Vec<PublicEventUser>,
 }
 
 fn get_public_user((eu, ud): (EventUser, UserData)) -> PublicEventUser {
@@ -61,6 +69,7 @@ fn get_public_user((eu, ud): (EventUser, UserData)) -> PublicEventUser {
         role_factor: if ud.show_role { Some(ud.role_factor) } else { None },
         open: if ud.show_open { Some(ud.open) } else { None },
         slot: eu.slot,
+        new_slot: eu.new_slot,
         state: eu.state,
         guests: eu.guests,
     }
@@ -95,10 +104,10 @@ pub async fn get_event_user(
 pub async fn get_event_users(
     auth: AuthSession,
     Path(e_id): Path<ID>,
-) -> APIResult<Json<Vec<PublicEventUser>>> {
+) -> APIResult<Json<PublicEventUserLists>> {
     let mut conn = auth_to_conn_expect_logged_in(auth).await?;
     
-    let mut result: Vec<_> = event_user::table
+    let users = event_user::table
         .filter(event_user::event_id.eq(e_id))
         .inner_join(user_data::table.on(event_user::user_id.eq(user_data::user_id)))
         .select((EventUser::as_select(), UserData::as_select()))
@@ -106,14 +115,40 @@ pub async fn get_event_users(
         .await
         .map_err(APIError::internal)?
         .into_iter()
-        .map(get_public_user)
-        .collect();
+        .map(get_public_user);
 
-    result.sort_by(|a, b| {
-        a.state.cmp(&b.state).then(a.slot.cmp(&b.slot))
-    });
+
+    let mut registered = vec![];
+    let mut new = vec![];
+    let mut waiting = vec![];
+    for user in users {
+        if user.state == EventUserState::Registered {
+            registered.push(user);
+            continue 
+        }
+
+        if user.state == EventUserState::New {
+            new.push(user);
+            continue
+        }
+
+        if user.state == EventUserState::Waiting || user.state == EventUserState::WaitingNew {
+            waiting.push(user);
+            continue
+        }
+    }
     
-    Ok(Json(result))
+    registered.sort_by(|a, b| {a.name.cmp(&b.name)});
+    new.sort_by(|a, b| {a.name.cmp(&b.name)});
+    waiting.sort_by(|a, b| {a.slot.cmp(&b.slot)});
+    
+    let user_list = PublicEventUserLists {
+        registered,
+        new,
+        waiting,
+    };
+    
+    Ok(Json(user_list))
 }
 
 #[utoipa::path(
@@ -131,12 +166,13 @@ pub async fn register_to_event(
         return Err(APIError::UserAlreadyRegistered);
     }
     
-    let (state, slot) = get_user_slot(e_id, u_id, g, &mut conn).await?;
+    let (state, slot, new_slot) = get_user_slot(e_id, u_id, g, &mut conn).await?;
     
     let event_user = EventUser{
         user_id: u_id,
         event_id: e_id,
         slot,
+        new_slot,
         state,
         guests: g,
         attended: false,
@@ -170,7 +206,8 @@ pub async fn unregister_from_event(
         .get_result(&mut conn.0)
         .await
         .map_err(APIError::internal)?;
-    
+
+    after_unregister(e_id, event_user, &mut conn).await?;
     log_user_action_from_event_user(event_user, EventUserAction::Unregister, conn).await?;
     
     Ok(())
@@ -186,7 +223,11 @@ pub async fn change_guests(
     Json(g): Json<i32>
 ) -> APIResult<()> {
     let mut conn = auth_to_id_is_me_or_i_am_admin(auth, u_id).await?;
-
+    
+    if !check_change_guests_ok(e_id, u_id, g, &mut conn).await? {
+        return Err(APIError::ChangeGuestsDenied)
+    }
+    
     let event_user = diesel::update(event_user::table)
         .filter(event_user::event_id.eq(e_id))
         .filter(event_user::user_id.eq(u_id))

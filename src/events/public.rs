@@ -30,9 +30,12 @@ pub struct PublicEventData {
 #[derive(serde::Serialize, serde::Deserialize, ToSchema, Debug, PartialEq)]
 pub struct LoggedInEventData {
     pub slots: i32,
+    pub new_slots: i32,
     pub register_count: i32,
+    pub new_count: i32,
     pub wait_count: i32,
     pub open_count: i32,
+    pub open_new_count: i32,
     pub description: String,
 }
 
@@ -86,9 +89,9 @@ pub async fn get_event_public_data(
 ) -> APIResult<Json<PublicEventData>> {
     let (admin, mut conn) = auth_to_is_admin_and_conn(auth).await?;
 
-    let (slots, description) = get_slots_and_description_of_event_with_admin_check(e_id, admin, &mut conn).await?;
-    let register_count = get_count_of_event_users_with_state(e_id, EventUserState::Registered, &mut conn).await?;
-    let wait_count = get_count_of_event_users_with_state(e_id, EventUserState::Waiting, &mut conn).await?;
+    let (slots, _, description) = get_slots_and_description_of_event_with_admin_check(e_id, admin, &mut conn).await?;
+    let register_count = get_count_of_event_users_with_state(e_id, &[EventUserState::Registered], &mut conn).await?;
+    let wait_count = get_count_of_event_users_with_state(e_id, &[EventUserState::Waiting, EventUserState::WaitingNew], &mut conn).await?;
 
     Ok(Json(PublicEventData {
         slots,
@@ -108,16 +111,21 @@ pub async fn get_event_logged_in_data(
 ) -> APIResult<Json<LoggedInEventData>> {
     let (admin, mut conn) = auth_to_conn_expect_logged_in_check_is_admin(auth).await?;
 
-    let (slots, description) = get_slots_and_description_of_event_with_admin_check(e_id, admin, &mut conn).await?;
-    let register_count = get_count_of_event_users_with_state(e_id, EventUserState::Registered, &mut conn).await?;
-    let wait_count = get_count_of_event_users_with_state(e_id, EventUserState::Waiting, &mut conn).await?;
-    let open_count = get_count_of_event_users_open_with_state(e_id, EventUserState::Registered, &mut conn).await?;
+    let (slots, new_slots, description) = get_slots_and_description_of_event_with_admin_check(e_id, admin, &mut conn).await?;
+    let register_count = get_count_of_event_users_with_state(e_id, &[EventUserState::Registered], &mut conn).await?;
+    let new_count = get_count_of_event_users_with_state(e_id, &[EventUserState::New], &mut conn).await?;
+    let wait_count = get_count_of_event_users_with_state(e_id, &[EventUserState::Waiting, EventUserState::WaitingNew], &mut conn).await?;
+    let open_count = get_count_of_event_users_open_with_state(e_id, &[EventUserState::Registered], &mut conn).await?;
+    let open_new_count = get_count_of_event_users_open_with_state(e_id, &[EventUserState::New], &mut conn).await?;
 
     Ok(Json(LoggedInEventData {
         slots,
+        new_slots,
         register_count,
+        new_count,
         wait_count,
         open_count,
+        open_new_count,
         description,
     }))
 }

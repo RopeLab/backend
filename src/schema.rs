@@ -41,6 +41,7 @@ diesel::table! {
         state -> Eventuserstate,
         guests -> Int4,
         attended -> Bool,
+        new_slot -> Int4,
     }
 }
 

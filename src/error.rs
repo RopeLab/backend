@@ -40,6 +40,10 @@ pub enum APIError {
     #[status_code(FORBIDDEN)]
     #[message("User is not in Event")]
     UserNotInEvent,
+
+    #[status_code(FORBIDDEN)]
+    #[message("Change guest not possible")]
+    ChangeGuestsDenied,
 }
 
 

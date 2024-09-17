@@ -54,6 +54,7 @@ use crate::events::public::*;
         NewEvent,
         EventUser,
         PublicEventUser,
+        PublicEventUserLists,
         EventDate,
         PublicEventData,
         LoggedInEventData,
