@@ -22,7 +22,10 @@ pub enum EventUserAction {
     Unregister, 
     GetSlot, 
     Rejected, 
+    NotRejected,
     ChangeGuests,
+    Attended,
+    NotAttended,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Insertable, AsChangeset, Queryable, Selectable, ToSchema, Debug, PartialEq)]

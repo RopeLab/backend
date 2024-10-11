@@ -3,10 +3,12 @@ use axum::{Json, Router};
 use axum::extract::Path;
 use axum::routing::{get, post};
 use diesel::prelude::*;
+use diesel::serialize::IsNull::No;
 use utoipa::ToSchema;
 use crate::auth::util::{auth_to_conn_expect_logged_in, auth_to_conn_expect_logged_in_and_check_attended, auth_to_conn_expect_logged_in_and_verified, auth_to_id_is_me_or_i_am_admin};
 use crate::backend::{Backend, DBConnection};
 use diesel_async::RunQueryDsl;
+use serde::de::value;
 use tracing_subscriber::fmt::format;
 use crate::error::APIError;
 use crate::schema::{event_user, user_data};
@@ -15,7 +17,7 @@ use crate::error::APIResult;
 use crate::events::slots::{after_unregister, check_change_guests_ok, get_user_slot};
 use crate::events::user_action::{EventUserAction, log_user_action_from_event_user};
 use crate::events::util::is_user_in_event;
-use crate::schema::event_user::guests;
+use crate::schema::event_user::{attended, guests};
 
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde_repr::Serialize_repr, serde_repr::Deserialize_repr, Ord, PartialOrd)]
@@ -53,6 +55,7 @@ pub struct PublicEventUser {
     pub new_slot: i32,
     pub state: EventUserState,
     pub guests: i32,
+    pub attended: Option<bool>,
 }
 
 #[derive(Clone, serde::Serialize, serde::Deserialize, ToSchema, Debug, PartialEq)]
@@ -74,6 +77,7 @@ fn get_public_user<const ADMIN: bool, const CHECK_ATTENDED: bool>((eu, ud): (Eve
             new_slot: eu.new_slot,
             state: eu.state,
             guests: eu.guests,
+            attended: Some(eu.attended),
         }
     }
 
@@ -88,6 +92,7 @@ fn get_public_user<const ADMIN: bool, const CHECK_ATTENDED: bool>((eu, ud): (Eve
             new_slot: eu.new_slot,
             state: eu.state,
             guests: eu.guests,
+            attended: Some(eu.attended),
         }
     }
     
@@ -101,6 +106,7 @@ fn get_public_user<const ADMIN: bool, const CHECK_ATTENDED: bool>((eu, ud): (Eve
         new_slot: eu.new_slot,
         state: eu.state,
         guests: eu.guests,
+        attended: None,
     }
 }
 
@@ -289,7 +295,7 @@ pub async fn unregister_from_event(
 
 #[utoipa::path(
     post,
-    path = "/event/{event_id}/change_guests"
+    path = "/event/{event_id}/change_guests/{user_id}"
 )]
 pub async fn change_guests(
     auth: AuthSession,
@@ -316,6 +322,31 @@ pub async fn change_guests(
     Ok(())
 }
 
+#[utoipa::path(
+    post,
+    path = "/event/{event_id}/attended/{user_id}"
+)]
+pub async fn set_attended(
+    auth: AuthSession,
+    Path((e_id, u_id)): Path<(i32, i32)>,
+    Json(value): Json<bool>
+) -> APIResult<()> {
+    let mut conn = auth_to_conn_expect_logged_in_and_check_attended(auth).await?;
+    
+    let event_user = diesel::update(event_user::table)
+        .filter(event_user::event_id.eq(e_id))
+        .filter(event_user::user_id.eq(u_id))
+        .set(attended.eq(value))
+        .returning(EventUser::as_select())
+        .get_result(&mut conn.0)
+        .await
+        .map_err(APIError::internal)?;
+
+    log_user_action_from_event_user(event_user, if value { EventUserAction::Attended } else { EventUserAction::NotAttended }, conn).await?;
+
+    Ok(())
+}
+
 pub fn add_admin_event_user_routes(router: Router<Backend>) -> Router<Backend> {
     router.route("/event/:event_id/users/admin", get(get_event_users_admin))
 }
@@ -327,4 +358,5 @@ pub fn add_event_user_routes(router: Router<Backend>) -> Router<Backend> {
         .route("/event/:event_id/register/:user_id", post(register_to_event))
         .route("/event/:event_id/unregister/:user_id", post(unregister_from_event))
         .route("/event/:event_id/change_guests/:user_id", post(change_guests))
+        .route("/event/:event_id/attended/:user_id", post(set_attended))
 }

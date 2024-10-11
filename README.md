@@ -39,7 +39,7 @@ cargo run
 
 #### Create new migrations
 ```shell
-diesel migration generate add_check_permission
+diesel migration generate add_log_states
 ```
 
 #### Apply migrations
