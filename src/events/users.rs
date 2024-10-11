@@ -4,9 +4,10 @@ use axum::extract::Path;
 use axum::routing::{get, post};
 use diesel::prelude::*;
 use utoipa::ToSchema;
-use crate::auth::util::{auth_to_conn_expect_logged_in, auth_to_conn_expect_logged_in_and_verified, auth_to_id_is_me_or_i_am_admin};
-use crate::backend::{Backend};
+use crate::auth::util::{auth_to_conn_expect_logged_in, auth_to_conn_expect_logged_in_and_check_attended, auth_to_conn_expect_logged_in_and_verified, auth_to_id_is_me_or_i_am_admin};
+use crate::backend::{Backend, DBConnection};
 use diesel_async::RunQueryDsl;
+use tracing_subscriber::fmt::format;
 use crate::error::APIError;
 use crate::schema::{event_user, user_data};
 use crate::user_data::UserData;
@@ -61,7 +62,35 @@ pub struct PublicEventUserLists {
     pub waiting: Vec<PublicEventUser>,
 }
 
-fn get_public_user((eu, ud): (EventUser, UserData)) -> PublicEventUser {
+fn get_public_user<const ADMIN: bool, const CHECK_ATTENDED: bool>((eu, ud): (EventUser, UserData)) -> PublicEventUser {
+    if ADMIN {
+        return PublicEventUser {
+            user_id: ud.user_id,
+            name: if ud.show_name { Some(ud.name) } else { Some(format!("{} (Anonym)", ud.name)) },
+            fetlife_name: Some(ud.fetlife_name),
+            role_factor: Some(ud.role_factor),
+            open: Some(ud.open),
+            slot: eu.slot,
+            new_slot: eu.new_slot,
+            state: eu.state,
+            guests: eu.guests,
+        }
+    }
+
+    if CHECK_ATTENDED {
+        return PublicEventUser {
+            user_id: ud.user_id,
+            name: if ud.show_name { Some(ud.name) } else { Some(format!("{} (Anonym)", ud.name)) },
+            fetlife_name: None,
+            role_factor: None,
+            open: None,
+            slot: eu.slot,
+            new_slot: eu.new_slot,
+            state: eu.state,
+            guests: eu.guests,
+        }
+    }
+    
     PublicEventUser {
         user_id: ud.user_id,
         name: if ud.show_name { Some(ud.name) } else { None },
@@ -85,7 +114,7 @@ pub async fn get_event_user(
 ) -> APIResult<Json<PublicEventUser>> {
     let mut conn = auth_to_conn_expect_logged_in_and_verified(auth).await?;
 
-    let result = get_public_user(event_user::table
+    let result = get_public_user::<false, false>(event_user::table
         .filter(event_user::event_id.eq(e_id))
         .filter(event_user::user_id.eq(u_id))
         .inner_join(user_data::table.on(event_user::user_id.eq(user_data::user_id)))
@@ -106,7 +135,25 @@ pub async fn get_event_users(
     Path(e_id): Path<i32>,
 ) -> APIResult<Json<PublicEventUserLists>> {
     let mut conn = auth_to_conn_expect_logged_in_and_verified(auth).await?;
+    let users = query_event_users::<false>(&mut conn, e_id).await?;
+    Ok(Json(users))
     
+}
+
+#[utoipa::path(
+    get,
+    path = "/event/{id}/users/admin"
+)]
+pub async fn get_event_users_admin(
+    mut conn: DBConnection,
+    Path(e_id): Path<i32>,
+) -> APIResult<Json<PublicEventUserLists>> {
+    let users = query_event_users::<true>(&mut conn, e_id).await?;
+    Ok(Json(users))
+
+}
+
+pub async fn query_event_users<const ADMIN: bool>(conn: &mut DBConnection, e_id: i32) -> APIResult<PublicEventUserLists> {
     let users = event_user::table
         .filter(event_user::event_id.eq(e_id))
         .inner_join(user_data::table.on(event_user::user_id.eq(user_data::user_id)))
@@ -115,7 +162,7 @@ pub async fn get_event_users(
         .await
         .map_err(APIError::internal)?
         .into_iter()
-        .map(get_public_user);
+        .map(get_public_user::<ADMIN, false>);
 
 
     let mut registered = vec![];
@@ -124,7 +171,7 @@ pub async fn get_event_users(
     for user in users {
         if user.state == EventUserState::Registered {
             registered.push(user);
-            continue 
+            continue
         }
 
         if user.state == EventUserState::New {
@@ -137,18 +184,45 @@ pub async fn get_event_users(
             continue
         }
     }
-    
+
     registered.sort_by(|a, b| {a.name.cmp(&b.name)});
     new.sort_by(|a, b| {a.name.cmp(&b.name)});
     waiting.sort_by(|a, b| {a.slot.cmp(&b.slot)});
-    
+
     let user_list = PublicEventUserLists {
         registered,
         new,
         waiting,
     };
+
+    Ok(user_list)
+}
+
+#[utoipa::path(
+    get,
+    path = "/event/{id}/users/check_attended"
+)]
+pub async fn get_event_users_check_attended(
+    auth: AuthSession,
+    Path(e_id): Path<i32>,
+) -> APIResult<Json<Vec<PublicEventUser>>> {
+    let mut conn = auth_to_conn_expect_logged_in_and_check_attended(auth).await?;
     
-    Ok(Json(user_list))
+    let mut users: Vec<PublicEventUser> = event_user::table
+        .filter(event_user::event_id.eq(e_id))
+        .inner_join(user_data::table.on(event_user::user_id.eq(user_data::user_id)))
+        .select((EventUser::as_select(), UserData::as_select()))
+        .get_results::<(EventUser, UserData)>(&mut conn.0)
+        .await
+        .map_err(APIError::internal)?
+        .into_iter()
+        .map(get_public_user::<false, true>)
+        .collect();
+
+    users.sort_by(|a, b| {a.name.cmp(&b.name)});
+    
+    Ok(Json(users))
+
 }
 
 #[utoipa::path(
@@ -242,9 +316,14 @@ pub async fn change_guests(
     Ok(())
 }
 
+pub fn add_admin_event_user_routes(router: Router<Backend>) -> Router<Backend> {
+    router.route("/event/:event_id/users/admin", get(get_event_users_admin))
+}
+
 pub fn add_event_user_routes(router: Router<Backend>) -> Router<Backend> {
     router.route("/event/:event_id/users/:user_id", get(get_event_user))
         .route("/event/:event_id/users", get(get_event_users))
+        .route("/event/:event_id/users/check_attended", get(get_event_users_check_attended))
         .route("/event/:event_id/register/:user_id", post(register_to_event))
         .route("/event/:event_id/unregister/:user_id", post(unregister_from_event))
         .route("/event/:event_id/change_guests/:user_id", post(change_guests))

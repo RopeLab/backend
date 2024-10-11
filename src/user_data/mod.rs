@@ -88,11 +88,15 @@ pub async fn get_user_data_by_id(
     path = "/user_data/all"
 )]
 pub async fn get_user_data_all(DBConnection(mut conn): DBConnection) -> APIResult<Json<Vec<UserData>>> {
-    let user_data = user_data::table
+    let mut user_data = user_data::table
         .select(UserData::as_select())
         .get_results(&mut conn)
         .await
         .map_err(APIError::internal)?;
+    
+    user_data.sort_by(|a, b| {
+        b.new.cmp(&a.new).then(a.name.cmp(&b.name))
+    });
 
     Ok(Json(user_data))
 }

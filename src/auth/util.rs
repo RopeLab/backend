@@ -136,3 +136,18 @@ pub async fn auth_and_path_to_id_is_me_or_i_am_admin(
     
     Ok(conn)
 }
+
+pub async fn auth_to_conn_expect_logged_in_and_check_attended(
+    auth_session: AuthSession,
+) -> APIResult<DBConnection> {
+    if auth_session.user.is_none() {
+        return Err(APIError::UNAUTHORIZED);
+    }
+
+    let mut conn = auth_session.backend.get_connection().await?;
+    if !has_permission(&mut conn, auth_session.user.unwrap().id, UserPermission::CheckAttended).await {
+        return Err(APIError::UNAUTHORIZED);
+    }
+
+    Ok(conn)
+}

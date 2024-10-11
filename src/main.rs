@@ -27,7 +27,7 @@ use crate::auth::routes::{add_admin_auth_routes, add_auth_routes};
 use crate::backend::Backend;
 use crate::cors::add_cors_layer;
 use crate::events::{add_admin_event_routes};
-use crate::events::users::add_event_user_routes;
+use crate::events::users::{add_admin_event_user_routes, add_event_user_routes};
 use crate::events::public::add_public_event_routes;
 use crate::events::user_action::add_user_action_routes;
 use crate::open_api::add_swagger_route;
@@ -60,6 +60,7 @@ async fn main() {
     router = add_admin_permission_routes(router);
     router = add_admin_event_routes(router);
     router = add_admin_user_data_routes(router);
+    router = add_admin_event_user_routes(router);
     router = router.route_layer(permission_required!(Backend, UserPermission::Admin));
 
     router = add_swagger_route(router);
