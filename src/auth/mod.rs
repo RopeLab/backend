@@ -12,11 +12,10 @@ use crate::error::{APIError, APIResult};
 use crate::schema::users;
 
 pub type AuthSession = axum_login::AuthSession<Backend>;
-pub type ID = i32;
 
 #[derive(serde::Serialize, Selectable, Queryable, ToSchema, Clone, Debug)]
 pub struct User {
-    pub id: ID,
+    pub id: i32,
     pub email: String,
     pub pw_hash: String,
 }
@@ -36,7 +35,7 @@ pub struct Credentials {
 }
 
 impl AuthUser for User {
-    type Id = ID;
+    type Id = i32;
 
     fn id(&self) -> Self::Id {
         self.id

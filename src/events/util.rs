@@ -1,14 +1,13 @@
 use diesel::dsl::{count_star, max, sum};
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
-use crate::auth::ID;
 use crate::backend::DBConnection;
 use crate::error::{APIError, APIResult};
 use crate::events::users::{EventUser, EventUserState};
 use crate::schema::{event, event_user, user_data};
 
 
-pub async fn is_user_in_event(e_id: ID, u_id: ID, conn: &mut DBConnection) -> bool {
+pub async fn is_user_in_event(e_id: i32, u_id: i32, conn: &mut DBConnection) -> bool {
     event_user::table
         .filter(event_user::event_id.eq(e_id))
         .filter(event_user::user_id.eq(u_id))
@@ -18,7 +17,7 @@ pub async fn is_user_in_event(e_id: ID, u_id: ID, conn: &mut DBConnection) -> bo
         .is_ok()
 }
 
-pub async fn is_user_new(u_id: ID, conn: &mut DBConnection) -> APIResult<bool> {
+pub async fn is_user_new(u_id: i32, conn: &mut DBConnection) -> APIResult<bool> {
     user_data::table
         .filter(user_data::user_id.eq(u_id))
         .select(user_data::new)
@@ -27,7 +26,7 @@ pub async fn is_user_new(u_id: ID, conn: &mut DBConnection) -> APIResult<bool> {
         .map_err(APIError::internal)
 }
 
-pub async fn get_slots_and_new_slots_of_event(e_id: ID, conn: &mut DBConnection) -> APIResult<(i32, i32)> {
+pub async fn get_slots_and_new_slots_of_event(e_id: i32, conn: &mut DBConnection) -> APIResult<(i32, i32)> {
      event::table
         .filter(event::id.eq(e_id))
         .filter(event::visible.eq(true))
@@ -37,7 +36,7 @@ pub async fn get_slots_and_new_slots_of_event(e_id: ID, conn: &mut DBConnection)
         .map_err(APIError::internal)
 }
 
-pub async fn get_slots_and_description_of_event_with_admin_check(e_id: ID, admin: bool, conn: &mut DBConnection) -> APIResult<(i32, i32, String)> {
+pub async fn get_slots_and_description_of_event_with_admin_check(e_id: i32, admin: bool, conn: &mut DBConnection) -> APIResult<(i32, i32, String)> {
     if admin {
         event::table
             .filter(event::id.eq(e_id))
@@ -56,7 +55,7 @@ pub async fn get_slots_and_description_of_event_with_admin_check(e_id: ID, admin
     }
 }
 
-pub async fn get_max_slot_index_with_state(e_id: ID, state: EventUserState, conn: &mut DBConnection) -> APIResult<i32> {
+pub async fn get_max_slot_index_with_state(e_id: i32, state: EventUserState, conn: &mut DBConnection) -> APIResult<i32> {
     let max_slot_index = event_user::table
         .filter(event_user::event_id.eq(e_id))
         .filter(event_user::state.eq(state))
@@ -69,7 +68,7 @@ pub async fn get_max_slot_index_with_state(e_id: ID, state: EventUserState, conn
     Ok(max_slot_index)
 }
 
-pub async fn get_count_of_event_users_with_state(id: ID, states: &[EventUserState], conn: &mut DBConnection) -> APIResult<i32> {
+pub async fn get_count_of_event_users_with_state(id: i32, states: &[EventUserState], conn: &mut DBConnection) -> APIResult<i32> {
     let (register_count, guest_count) = event_user::table
         .filter(event_user::event_id.eq(id))
         .filter(event_user::state.eq_any(states))
@@ -81,7 +80,7 @@ pub async fn get_count_of_event_users_with_state(id: ID, states: &[EventUserStat
     Ok((register_count + guest_count.unwrap_or_default()) as i32)
 }
 
-pub async fn get_count_of_event_users_with_state_expect_user_id(e_id: ID, u_id: ID, states: &[EventUserState], conn: &mut DBConnection) -> APIResult<i32> {
+pub async fn get_count_of_event_users_with_state_expect_user_id(e_id: i32, u_id: i32, states: &[EventUserState], conn: &mut DBConnection) -> APIResult<i32> {
     let (register_count, guest_count) = event_user::table
         .filter(event_user::event_id.eq(e_id))
         .filter(event_user::user_id.ne(u_id))
@@ -94,7 +93,7 @@ pub async fn get_count_of_event_users_with_state_expect_user_id(e_id: ID, u_id: 
     Ok((register_count + guest_count.unwrap_or_default()) as i32)
 }
 
-pub async fn get_count_of_event_users_open_with_state(id: ID, state: &[EventUserState], conn: &mut DBConnection) -> APIResult<i32> {
+pub async fn get_count_of_event_users_open_with_state(id: i32, state: &[EventUserState], conn: &mut DBConnection) -> APIResult<i32> {
     let open_count = event_user::table
         .filter(event_user::event_id.eq(id))
         .filter(event_user::state.eq_any(state))
@@ -108,7 +107,7 @@ pub async fn get_count_of_event_users_open_with_state(id: ID, state: &[EventUser
     Ok(open_count as i32)
 }
 
-pub async fn get_next_waiting_event_users(e_id: ID, conn: &mut DBConnection) -> APIResult<EventUser> {
+pub async fn get_next_waiting_event_users(e_id: i32, conn: &mut DBConnection) -> APIResult<EventUser> {
     event_user::table
         .filter(event_user::event_id.eq(e_id))
         .filter(event_user::state.eq_any(&[EventUserState::Waiting, EventUserState::WaitingNew]))
@@ -119,7 +118,7 @@ pub async fn get_next_waiting_event_users(e_id: ID, conn: &mut DBConnection) -> 
         .map_err(APIError::internal)
 }
 
-pub async fn get_next_waiting_new_event_users(e_id: ID, conn: &mut DBConnection) -> APIResult<EventUser> {
+pub async fn get_next_waiting_new_event_users(e_id: i32, conn: &mut DBConnection) -> APIResult<EventUser> {
     event_user::table
         .filter(event_user::event_id.eq(e_id))
         .filter(event_user::state.eq(EventUserState::WaitingNew))
@@ -130,7 +129,7 @@ pub async fn get_next_waiting_new_event_users(e_id: ID, conn: &mut DBConnection)
         .map_err(APIError::internal)
 }
 
-pub async fn is_event_user_states(e_id: ID, u_id: ID, state: &[EventUserState], conn: &mut DBConnection) -> bool {
+pub async fn is_event_user_states(e_id: i32, u_id: i32, state: &[EventUserState], conn: &mut DBConnection) -> bool {
     event_user::table
         .filter(event_user::event_id.eq(e_id))
         .filter(event_user::user_id.eq(u_id))

@@ -8,15 +8,15 @@ use axum_login::UserId;
 use diesel::{QueryDsl, SelectableHelper};
 use diesel_async::RunQueryDsl;
 use diesel::ExpressionMethods;
-use crate::auth::{AuthSession, Credentials, get_user_with_email, ID, NewUser, User};
+use crate::auth::{AuthSession, Credentials, get_user_with_email, NewUser, User};
 use crate::auth::util::{auth_to_logged_in_id, auth_and_path_to_id_is_me_or_i_am_admin};
 use crate::backend::{Backend, DBConnection};
 use crate::error::{APIError, APIResult};
 use crate::events::slots::after_unregister;
 use crate::events::users::{EventUser};
 use crate::firebase::{firebase_get_user_data, firebase_is_user_new, firebase_is_user_verified, firebase_login_user, insert_user_data_from_firebase};
-use crate::permissions::{is_admin, UserPermission};
-use crate::permissions::routes::post_permission;
+use crate::permissions::{is_admin, is_check_attended, is_verified, UserPermission};
+use crate::permissions::routes::post_permission_add;
 use crate::schema::{event_user, permission, user_action, user_data, users};
 use crate::schema::users::{email, id};
 
@@ -82,7 +82,7 @@ async fn login(
                 insert_user_data_from_firebase(user.id, firebase_user_data, firebase_user_new, &mut conn).await?;
 
                 if firebase_verified {
-                    post_permission(conn, Path(user.id), Json(UserPermission::Verified)).await?;
+                    post_permission_add(conn, Path(user.id), Json(UserPermission::Verified)).await?;
                 }
 
                 user
@@ -136,8 +136,8 @@ pub async fn get_id(
 #[debug_handler]
 pub async fn get_email(
     auth_session: AuthSession,
-    Path(u_id): Path<ID>,
-) -> crate::error::APIResult<Json<String>> {
+    Path(u_id): Path<i32>,
+) -> APIResult<Json<String>> {
     let mut conn = auth_and_path_to_id_is_me_or_i_am_admin(auth_session, u_id).await?;
     let mail = users::table
         .filter(id.eq(u_id))
@@ -146,21 +146,6 @@ pub async fn get_email(
         .await
         .map_err(APIError::internal)?;
     Ok(Json(mail))
-}
-
-#[utoipa::path(
-    get,
-    path = "/user/{id}/admin"
-)]
-#[debug_handler]
-pub async fn get_admin(
-    auth_session: AuthSession,
-    Path(u_id): Path<ID>,
-) -> APIResult<Json<bool>> {
-    let mut conn = auth_and_path_to_id_is_me_or_i_am_admin(auth_session, u_id).await?;
-    let admin = is_admin(&mut conn, u_id).await;
-
-    Ok(Json(admin))
 }
 
 #[utoipa::path(
@@ -182,7 +167,7 @@ async fn get_all_users(DBConnection(mut conn): DBConnection) -> crate::error::AP
 )]
 async fn remove_user(
     mut conn: DBConnection,
-    Path(u_id): Path<ID>
+    Path(u_id): Path<i32>
 ) -> APIResult<()> {
     diesel::delete(user_action::table)
         .filter(user_action::user_id.eq(u_id))
@@ -228,7 +213,6 @@ pub fn add_auth_routes(router: Router<Backend>) -> Router<Backend> {
         .route("/logout", post(logout))
         .route("/user/id", get(get_id))
         .route("/user/:id/email", get(get_email))
-        .route("/user/:id/admin", get(get_admin))
 }
 
 pub fn add_admin_auth_routes(router: Router<Backend>) -> Router<Backend> {

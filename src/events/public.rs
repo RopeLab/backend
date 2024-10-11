@@ -5,8 +5,8 @@ use chrono::NaiveDateTime;
 use diesel::{ExpressionMethods, QueryDsl};
 use diesel_async::RunQueryDsl;
 use utoipa::ToSchema;
-use crate::auth::{AuthSession, ID};
-use crate::auth::util::{auth_to_conn_expect_logged_in_check_is_admin, auth_to_is_admin_and_conn};
+use crate::auth::{AuthSession};
+use crate::auth::util::{auth_to_conn_expect_logged_in_and_verified_check_is_admin, auth_to_conn_expect_logged_in_check_is_admin, auth_to_is_admin_and_conn};
 use crate::backend::{Backend};
 use crate::error::{APIError, APIResult};
 use crate::events::users::{EventUserState};
@@ -15,7 +15,7 @@ use crate::schema::{event};
 
 #[derive(serde::Serialize, serde::Deserialize, ToSchema, Debug, PartialEq)]
 pub struct EventDate {
-    pub id: ID,
+    pub id: i32,
     pub date: NaiveDateTime,
 }
 
@@ -85,7 +85,7 @@ pub async fn get_event_dates(
 )]
 pub async fn get_event_public_data(
     auth: AuthSession,
-    Path(e_id): Path<ID>,
+    Path(e_id): Path<i32>,
 ) -> APIResult<Json<PublicEventData>> {
     let (admin, mut conn) = auth_to_is_admin_and_conn(auth).await?;
 
@@ -107,9 +107,9 @@ pub async fn get_event_public_data(
 )]
 pub async fn get_event_logged_in_data(
     auth: AuthSession,
-    Path(e_id): Path<ID>,
+    Path(e_id): Path<i32>,
 ) -> APIResult<Json<LoggedInEventData>> {
-    let (admin, mut conn) = auth_to_conn_expect_logged_in_check_is_admin(auth).await?;
+    let (admin, mut conn) = auth_to_conn_expect_logged_in_and_verified_check_is_admin(auth).await?;
 
     let (slots, new_slots, description) = get_slots_and_description_of_event_with_admin_check(e_id, admin, &mut conn).await?;
     let register_count = get_count_of_event_users_with_state(e_id, &[EventUserState::Registered], &mut conn).await?;

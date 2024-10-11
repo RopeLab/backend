@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use diesel_async::RunQueryDsl;
 use fireauth::FireAuth;
 use firebase_rs::Firebase;
-use crate::auth::{Credentials, ID};
+use crate::auth::{Credentials};
 use crate::backend::DBConnection;
 use crate::error::{APIError, APIResult};
 use crate::schema::user_data;
@@ -114,7 +114,7 @@ pub async fn firebase_is_user_new(firebase_user_id: &str) -> APIResult<bool> {
     Ok(!found)
 }
 
-pub async fn insert_user_data_from_firebase(u_id: ID, firebase_user_data: FirebaseUserData, new: bool, conn: &mut DBConnection) -> APIResult<()> {
+pub async fn insert_user_data_from_firebase(u_id: i32, firebase_user_data: FirebaseUserData, new: bool, conn: &mut DBConnection) -> APIResult<()> {
     let user_data = UserData {
         user_id: u_id,
         name: firebase_user_data.name,

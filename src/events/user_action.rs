@@ -5,7 +5,7 @@ use chrono::{Local, NaiveDateTime};
 use diesel::{AsChangeset, ExpressionMethods, Insertable, Queryable, QueryDsl, Selectable, SelectableHelper};
 use diesel_async::RunQueryDsl;
 use utoipa::ToSchema;
-use crate::auth::{AuthSession, ID};
+use crate::auth::{AuthSession};
 use crate::auth::util::{auth_to_id_is_me_or_i_am_admin};
 use crate::backend::{Backend, DBConnection};
 use crate::error::APIError;
@@ -28,8 +28,8 @@ pub enum EventUserAction {
 #[derive(serde::Serialize, serde::Deserialize, Insertable, AsChangeset, Queryable, Selectable, ToSchema, Debug, PartialEq)]
 #[diesel(table_name = user_action)]
 pub struct UserAction {
-    pub user_id: ID,
-    pub event_id: ID,
+    pub user_id: i32,
+    pub event_id: i32,
     pub date: NaiveDateTime,
     pub action: EventUserAction,
     pub in_waiting: bool,
@@ -81,7 +81,7 @@ pub async fn log_user_action(
 )]
 pub async fn get_user_actions(
     auth: AuthSession,
-    Path(u_id): Path<ID>,
+    Path(u_id): Path<i32>,
 ) -> APIResult<Json<Vec<UserAction>>> {
     let mut conn = auth_to_id_is_me_or_i_am_admin(auth, u_id).await?;
 

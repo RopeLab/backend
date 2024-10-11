@@ -11,7 +11,6 @@ use chrono::NaiveDateTime;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use utoipa::ToSchema;
-use crate::auth::ID;
 use crate::backend::{Backend, DBConnection};
 use crate::error::APIError;
 use crate::schema::event;
@@ -20,7 +19,7 @@ use crate::error::APIResult;
 #[derive(serde::Serialize, serde::Deserialize, Queryable, Insertable, Selectable, AsChangeset, ToSchema, Debug, PartialEq)]
 #[diesel(table_name = event)]
 pub struct Event {
-    pub id: ID,
+    pub id: i32,
     pub visible_date: NaiveDateTime,
     pub register_deadline: NaiveDateTime,
     pub date: NaiveDateTime,
@@ -68,7 +67,7 @@ pub async fn post_event(
 )]
 pub async fn update_event(
     mut conn: DBConnection,
-    Path(e_id): Path<ID>,
+    Path(e_id): Path<i32>,
     Json(event): Json<Event>
 ) -> APIResult<()> {
     if e_id != event.id {
@@ -90,7 +89,7 @@ pub async fn update_event(
 )]
 pub async fn get_event(
     mut conn: DBConnection,
-    Path(e_id): Path<ID>,
+    Path(e_id): Path<i32>,
 ) -> APIResult<Json<Event>> {
     let event = event::table
         .filter(event::id.eq(e_id))
@@ -107,7 +106,7 @@ pub async fn get_event(
 )]
 pub async fn delete_event(
     mut conn: DBConnection,
-    Path(e_id): Path<ID>,
+    Path(e_id): Path<i32>,
 ) -> APIResult<()> {
     diesel::delete(event::table)
         .filter(event::id.eq(e_id))

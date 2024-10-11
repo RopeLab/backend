@@ -1,10 +1,10 @@
-use crate::auth::{AuthSession, ID};
+use crate::auth::{AuthSession};
 use axum::{Json, Router};
 use axum::extract::Path;
 use axum::routing::{get, post};
 use diesel::prelude::*;
 use utoipa::ToSchema;
-use crate::auth::util::{auth_to_conn_expect_logged_in, auth_to_id_is_me_or_i_am_admin};
+use crate::auth::util::{auth_to_conn_expect_logged_in, auth_to_conn_expect_logged_in_and_verified, auth_to_id_is_me_or_i_am_admin};
 use crate::backend::{Backend};
 use diesel_async::RunQueryDsl;
 use crate::error::APIError;
@@ -32,8 +32,8 @@ pub enum EventUserState {
 #[derive(Copy, Clone, serde::Serialize, serde::Deserialize, Insertable, AsChangeset, Queryable, Selectable, ToSchema, Debug, PartialEq)]
 #[diesel(table_name = event_user)]
 pub struct EventUser {
-    pub user_id: ID,
-    pub event_id: ID,
+    pub user_id: i32,
+    pub event_id: i32,
     pub slot: i32,
     pub new_slot: i32,
     pub state: EventUserState,
@@ -43,7 +43,7 @@ pub struct EventUser {
 
 #[derive(Clone, serde::Serialize, serde::Deserialize, ToSchema, Debug, PartialEq)]
 pub struct PublicEventUser {
-    pub user_id: ID,
+    pub user_id: i32,
     pub name: Option<String>,
     pub fetlife_name: Option<String>,
     pub role_factor: Option<f64>,
@@ -81,9 +81,9 @@ fn get_public_user((eu, ud): (EventUser, UserData)) -> PublicEventUser {
 )]
 pub async fn get_event_user(
     auth: AuthSession,
-    Path((e_id, u_id)): Path<(ID, ID)>,
+    Path((e_id, u_id)): Path<(i32, i32)>,
 ) -> APIResult<Json<PublicEventUser>> {
-    let mut conn = auth_to_conn_expect_logged_in(auth).await?;
+    let mut conn = auth_to_conn_expect_logged_in_and_verified(auth).await?;
 
     let result = get_public_user(event_user::table
         .filter(event_user::event_id.eq(e_id))
@@ -103,9 +103,9 @@ pub async fn get_event_user(
 )]
 pub async fn get_event_users(
     auth: AuthSession,
-    Path(e_id): Path<ID>,
+    Path(e_id): Path<i32>,
 ) -> APIResult<Json<PublicEventUserLists>> {
-    let mut conn = auth_to_conn_expect_logged_in(auth).await?;
+    let mut conn = auth_to_conn_expect_logged_in_and_verified(auth).await?;
     
     let users = event_user::table
         .filter(event_user::event_id.eq(e_id))
@@ -157,7 +157,7 @@ pub async fn get_event_users(
 )]
 pub async fn register_to_event(
     auth: AuthSession,
-    Path((e_id, u_id)): Path<(ID, ID)>,
+    Path((e_id, u_id)): Path<(i32, i32)>,
     Json(g): Json<i32>
 ) -> APIResult<()> {
     let mut conn = auth_to_id_is_me_or_i_am_admin(auth, u_id).await?;
@@ -195,7 +195,7 @@ pub async fn register_to_event(
 )]
 pub async fn unregister_from_event(
     auth: AuthSession,
-    Path((e_id, u_id)): Path<(ID, ID)>,
+    Path((e_id, u_id)): Path<(i32, i32)>,
 ) -> APIResult<()> {
     let mut conn = auth_to_id_is_me_or_i_am_admin(auth, u_id).await?;
     
@@ -210,8 +210,6 @@ pub async fn unregister_from_event(
     after_unregister(event_user, &mut conn).await?;
     log_user_action_from_event_user(event_user, EventUserAction::Unregister, conn).await?;
     
-    
-    
     Ok(())
 }
 
@@ -221,7 +219,7 @@ pub async fn unregister_from_event(
 )]
 pub async fn change_guests(
     auth: AuthSession,
-    Path((e_id, u_id)): Path<(ID, ID)>,
+    Path((e_id, u_id)): Path<(i32, i32)>,
     Json(g): Json<i32>
 ) -> APIResult<()> {
     let mut conn = auth_to_id_is_me_or_i_am_admin(auth, u_id).await?;

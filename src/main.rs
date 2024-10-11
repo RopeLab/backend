@@ -10,6 +10,7 @@ pub mod events;
 pub mod cors;
 pub mod firebase;
 
+use std::fmt::Debug;
 use axum::{
     Router,
     routing::get,
@@ -17,7 +18,7 @@ use axum::{
 use std::net::SocketAddr;
 use axum_login::{AuthManagerLayerBuilder, permission_required};
 use axum_login::tower_sessions::{MemoryStore, SessionManagerLayer};
-
+use tracing::info;
 
 
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -52,8 +53,6 @@ async fn main() {
 
     let backend = Backend::new().await.unwrap();
     let auth_layer = AuthManagerLayerBuilder::new(backend.clone(), session_layer).build();
-
-    
     
     let mut router = Router::<Backend>::new();
     
@@ -82,7 +81,8 @@ async fn main() {
     tracing::debug!("listening on {addr}");
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     
-    open::that("localhost:3001/swagger-ui").unwrap();
+    println!("API Dashboard at: https://localhost:3001/swagger-ui");
+    //open::that("localhost:3001/swagger-ui").unwrap();
     axum::serve(listener, app).await.unwrap();
 }
 

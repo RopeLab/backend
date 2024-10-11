@@ -5,27 +5,28 @@ use std::collections::{HashSet};
 use axum_login::{AuthzBackend, UserId};
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
+use serde_repr::{Deserialize_repr, Serialize_repr};
 use utoipa::{ToSchema};
-use crate::auth::ID;
 use crate::backend::{Backend, DBConnection};
 use crate::error::APIError;
 use crate::schema::{permission};
 use crate::schema::permission::{user_id, user_permission};
 use crate::error::APIResult;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize_repr, Deserialize_repr, ToSchema)]
 #[derive(diesel_derive_enum::DbEnum)]
 #[ExistingTypePath = "crate::schema::sql_types::Userpermission"]
 #[repr(u8)]
 pub enum UserPermission {
     Admin,
-    Verified
+    Verified,
+    CheckAttended
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Queryable, Selectable, Insertable, AsChangeset, ToSchema, Debug)]
 #[diesel(table_name = permission)]
 pub struct Permission {
-    pub user_id: ID,
+    pub user_id: i32,
     pub user_permission: UserPermission,
 }
 
@@ -50,6 +51,20 @@ pub async fn is_admin(
     id: UserId<Backend>,
 ) -> bool {
     has_permission(conn, id, UserPermission::Admin).await
+}
+
+pub async fn is_verified(
+    conn: &mut DBConnection,
+    id: UserId<Backend>,
+) -> bool {
+    has_permission(conn, id, UserPermission::Verified).await
+}
+
+pub async fn is_check_attended(
+    conn: &mut DBConnection,
+    id: UserId<Backend>,
+) -> bool {
+    has_permission(conn, id, UserPermission::CheckAttended).await
 }
 
 pub async fn get_permissions_iter(

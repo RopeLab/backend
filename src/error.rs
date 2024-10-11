@@ -26,6 +26,10 @@ pub enum APIError {
     PermissionAlreadyAdded,
 
     #[status_code(NOT_ACCEPTABLE)]
+    #[message("Permission not there")]
+    PermissionNotThere,
+
+    #[status_code(NOT_ACCEPTABLE)]
     #[message("Invalid path")]
     InvalidPath,
 

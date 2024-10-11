@@ -1,6 +1,5 @@
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
-use crate::auth::ID;
 use crate::backend::DBConnection;
 use crate::error::{APIError, APIResult};
 use crate::events::users::{EventUser, EventUserState};
@@ -8,7 +7,7 @@ use crate::events::util::{get_count_of_event_users_with_state, get_count_of_even
 use crate::schema::event_user;
 
 
-pub async fn get_user_slot(e_id: ID, u_id: ID, guests: i32, conn: &mut DBConnection) -> APIResult<(EventUserState, i32, i32)> {
+pub async fn get_user_slot(e_id: i32, u_id: i32, guests: i32, conn: &mut DBConnection) -> APIResult<(EventUserState, i32, i32)> {
     let register_count = get_count_of_event_users_with_state(e_id, &[EventUserState::Registered], conn).await?;
     let (slots, new_slots) = get_slots_and_new_slots_of_event(e_id, conn).await?;
     
@@ -34,7 +33,7 @@ pub async fn get_user_slot(e_id: ID, u_id: ID, guests: i32, conn: &mut DBConnect
     return Ok((EventUserState::Waiting, slot_index, 0));
 }
 
-pub async fn move_up_register(e_id: ID, conn: &mut DBConnection) -> APIResult<()> {
+pub async fn move_up_register(e_id: i32, conn: &mut DBConnection) -> APIResult<()> {
     let (slots, _) = get_slots_and_new_slots_of_event(e_id, conn).await?;
     
     let mut register_count = get_count_of_event_users_with_state(e_id, &[EventUserState::Registered], conn).await?;
@@ -65,7 +64,7 @@ pub async fn move_up_register(e_id: ID, conn: &mut DBConnection) -> APIResult<()
     Ok(())
 }
 
-pub async fn move_up_new(e_id: ID, conn: &mut DBConnection) -> APIResult<()> {
+pub async fn move_up_new(e_id: i32, conn: &mut DBConnection) -> APIResult<()> {
     let (_, new_slots) = get_slots_and_new_slots_of_event(e_id, conn).await?;
 
     let mut new_count = get_count_of_event_users_with_state(e_id, &[EventUserState::New], conn).await?;
@@ -96,7 +95,7 @@ pub async fn move_up_new(e_id: ID, conn: &mut DBConnection) -> APIResult<()> {
     Ok(())
 }
 
-async fn move_up_waiting(e_id: ID, slot: i32, conn: &mut DBConnection) -> APIResult<()> {
+async fn move_up_waiting(e_id: i32, slot: i32, conn: &mut DBConnection) -> APIResult<()> {
     diesel::update(event_user::table)
         .filter(event_user::event_id.eq(e_id))
         .filter(event_user::slot.ge(slot))
@@ -108,7 +107,7 @@ async fn move_up_waiting(e_id: ID, slot: i32, conn: &mut DBConnection) -> APIRes
     Ok(())
 }
 
-async fn move_up_waiting_new(e_id: ID, new_slot: i32, conn: &mut DBConnection) -> APIResult<()> {
+async fn move_up_waiting_new(e_id: i32, new_slot: i32, conn: &mut DBConnection) -> APIResult<()> {
     diesel::update(event_user::table)
         .filter(event_user::event_id.eq(e_id))
         .filter(event_user::new_slot.ge(new_slot))
@@ -145,7 +144,7 @@ pub async fn after_unregister(event_user: EventUser, conn: &mut DBConnection) ->
     Ok(())
 }
 
-pub async fn check_change_guests_ok(e_id: ID, u_id: ID, guests: i32, conn: &mut DBConnection) -> APIResult<bool> {
+pub async fn check_change_guests_ok(e_id: i32, u_id: i32, guests: i32, conn: &mut DBConnection) -> APIResult<bool> {
     let (slots, new_slots) = get_slots_and_new_slots_of_event(e_id, conn).await?;
     
     if is_event_user_states(e_id, u_id, &[EventUserState::Registered], conn).await {
