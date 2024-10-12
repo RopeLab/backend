@@ -39,7 +39,7 @@ cargo run
 
 #### Create new migrations
 ```shell
-diesel migration generate add_log_states
+diesel migration generate add_non_null
 ```
 
 #### Apply migrations

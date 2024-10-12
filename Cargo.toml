@@ -29,3 +29,7 @@ tower-http = { version = "0.5.2", features = ["cors"] }
 
 fireauth = "0.1.5"
 firebase-rs = "2.1.2"
+
+mail-send = "0.4.9"
+markdown = "1.0.0-alpha.21"
+markdown-meta-parser = "0.1.3"

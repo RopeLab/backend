@@ -24,8 +24,9 @@ diesel::table! {
         register_deadline -> Timestamp,
         visible_date -> Timestamp,
         archive_date -> Timestamp,
-        description -> Text,
+        custom_workshop -> Text,
         new_slots -> Int4,
+        workshop_file -> Text,
     }
 }
 

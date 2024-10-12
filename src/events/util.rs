@@ -3,9 +3,12 @@ use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use crate::backend::DBConnection;
 use crate::error::{APIError, APIResult};
+use crate::events::CUSTOM_WORKSHOP;
 use crate::events::users::{EventUser, EventUserState};
+use crate::markdown_files::{get_file_content};
 use crate::schema::{event, event_user, user_data};
-
+use crate::markdown_files::WORKSHOP_TEXT_SUB_PATH;
+use crate::markdown_files::EVENT_BASE_TEXT_SUB_PATH;
 
 pub async fn is_user_in_event(e_id: i32, u_id: i32, conn: &mut DBConnection) -> bool {
     event_user::table
@@ -37,22 +40,33 @@ pub async fn get_slots_and_new_slots_of_event(e_id: i32, conn: &mut DBConnection
 }
 
 pub async fn get_slots_and_description_of_event_with_admin_check(e_id: i32, admin: bool, conn: &mut DBConnection) -> APIResult<(i32, i32, String)> {
-    if admin {
+    let (slots, new_slots, workshop_file, custom_workshop): (i32, i32, String, String) = if admin {
         event::table
             .filter(event::id.eq(e_id))
-            .select((event::slots, event::new_slots, event::description))
+            .select((event::slots, event::new_slots, event::workshop_file, event::custom_workshop))
             .get_result(&mut conn.0)
             .await
-            .map_err(APIError::internal)
+            .map_err(APIError::internal)?
     } else {
         event::table
             .filter(event::id.eq(e_id))
             .filter(event::visible.eq(true))
-            .select((event::slots, event::new_slots, event::description))
+            .select((event::slots, event::new_slots, event::workshop_file, event::custom_workshop))
             .get_result(&mut conn.0)
             .await
-            .map_err(APIError::internal)
-    }
+            .map_err(APIError::internal)?
+    };
+    
+    let base_text = get_file_content(&format!("{EVENT_BASE_TEXT_SUB_PATH}/event_text.md"))?;
+    let workshop = if workshop_file != CUSTOM_WORKSHOP {
+        get_file_content(&format!("{WORKSHOP_TEXT_SUB_PATH}/{}", workshop_file))?
+    } else {
+        custom_workshop
+    };
+    
+    let description = markdown::to_html(&format!("{workshop}\n{base_text}"));
+    
+    Ok((slots, new_slots, description))
 }
 
 pub async fn get_max_slot_index_with_state(e_id: i32, state: EventUserState, conn: &mut DBConnection) -> APIResult<i32> {

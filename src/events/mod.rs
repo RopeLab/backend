@@ -16,6 +16,8 @@ use crate::error::APIError;
 use crate::schema::event;
 use crate::error::APIResult;
 
+pub const CUSTOM_WORKSHOP: &str = "Custom";
+
 #[derive(serde::Serialize, serde::Deserialize, Queryable, Insertable, Selectable, AsChangeset, ToSchema, Debug, PartialEq)]
 #[diesel(table_name = event)]
 pub struct Event {
@@ -28,7 +30,8 @@ pub struct Event {
     pub new_slots: i32,
     pub visible: bool,
     pub archive: bool,
-    pub description: String,
+    pub custom_workshop: String,
+    pub workshop_file: String
 }
 
 #[derive(serde::Deserialize, Insertable, ToSchema, Debug, PartialEq)]
@@ -42,7 +45,8 @@ pub struct NewEvent {
     pub new_slots: i32,
     pub visible: bool,
     pub archive: bool,
-    pub description: String,
+    pub custom_workshop: String,
+    pub workshop_file: String
 }
 
 #[utoipa::path(

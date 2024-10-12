@@ -9,6 +9,8 @@ pub mod permissions;
 pub mod events;
 pub mod cors;
 pub mod firebase;
+pub mod mails;
+pub mod markdown_files;
 
 use std::fmt::Debug;
 use axum::{
@@ -30,15 +32,36 @@ use crate::events::{add_admin_event_routes};
 use crate::events::users::{add_admin_event_user_routes, add_event_user_routes};
 use crate::events::public::add_public_event_routes;
 use crate::events::user_action::add_user_action_routes;
+use crate::mails::{send_mail, send_password_reset_mail};
+use crate::markdown_files::routes::add_admin_markdown_files_routes;
 use crate::open_api::add_swagger_route;
 use crate::permissions::{UserPermission};
 use crate::permissions::routes::{add_admin_permission_routes, add_permission_routes};
-use crate::user_data::{add_admin_user_data_routes, add_user_data_routes};
+use crate::user_data::{add_admin_user_data_routes, add_user_data_routes, UserData};
 
 
 
 #[tokio::main]
 async fn main() {
+    /*
+    send_password_reset_mail("maarten.behn@gmail.com", UserData {
+        user_id: 0,
+        name: "Stroby".to_string(),
+        fetlife_name: "".to_string(),
+        experience_text: "".to_string(),
+        found_us_text: "".to_string(),
+        goal_text: "".to_string(),
+        role_factor: 0.0,
+        open: false,
+        show_name: false,
+        show_role: false,
+        show_open: false,
+        show_fetlife: false,
+        new: false,
+    }, "https://reset_password_test.de").await.unwrap();
+    
+     */
+
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -61,6 +84,7 @@ async fn main() {
     router = add_admin_event_routes(router);
     router = add_admin_user_data_routes(router);
     router = add_admin_event_user_routes(router);
+    router = add_admin_markdown_files_routes(router);
     router = router.route_layer(permission_required!(Backend, UserPermission::Admin));
 
     router = add_swagger_route(router);
